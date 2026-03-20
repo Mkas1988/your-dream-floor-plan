@@ -1,41 +1,59 @@
 import { WallSegment, RoomLabel, FurnitureCatalogItem } from "./types";
 
-// Scale: 1 unit = 1 meter approximately
-// Based on the floor plan: total ~10m x 8m footprint
+// Scale: 1 unit = 1 meter
+// Building: ~10.5m × 7.5m
+// Centered at origin
+// X: left(-) to right(+), Z: top(-) to bottom(+) in plan view
 
 const W = 0.2; // wall thickness
 const H = 2.8; // wall height
 
-// Outer walls (clockwise from top-left)
-// The plan is roughly: main area left + rooms right
-// Coordinates centered around origin
+// Layout based on the floor plan:
+// Living Room (39.8m²): top-left large area, ~8m × 5m
+// Kitchen (9.1m²): bottom-left, ~3.5m × 2.6m
+// Hallway (7.1m²): right column upper, ~2.5m × 2.85m
+// Bathroom (2.7m²): right column lower, ~1.5m × 1.8m
+// External staircase: far left outside
+// Spiral staircase: bottom-right inside
+
 export const walls: WallSegment[] = [
   // === OUTER WALLS ===
-  // Top wall
-  { start: [-5, -4], end: [5, -4], height: H, thickness: W },
-  // Right wall
-  { start: [5, -4], end: [5, 4], height: H, thickness: W },
-  // Bottom wall
-  { start: [5, 4], end: [-5, 4], height: H, thickness: W },
-  // Left wall (with staircase gap)
-  { start: [-5, 4], end: [-5, -4], height: H, thickness: W },
+  // Top wall (north) - with windows
+  { start: [-5.25, -3.75], end: [5.25, -3.75], height: H, thickness: W, hasWindow: true },
+  // Right wall (east)
+  { start: [5.25, -3.75], end: [5.25, 3.75], height: H, thickness: W },
+  // Bottom wall (south)
+  { start: [5.25, 3.75], end: [-5.25, 3.75], height: H, thickness: W },
+  // Left wall (west) - with door to external staircase
+  { start: [-5.25, 3.75], end: [-5.25, -3.75], height: H, thickness: W, hasDoor: true },
 
-  // === INNER WALLS ===
-  // Wall separating living room from hallway/bathroom (vertical, right side)
-  { start: [2, -4], end: [2, 1], height: H, thickness: W, hasDoor: true },
-  // Wall separating hallway from bathroom (horizontal)
-  { start: [2, 1], end: [5, 1], height: H, thickness: W, hasDoor: true },
-  // Wall between hallway and bathroom (vertical)
-  { start: [3.8, 1], end: [3.8, 4], height: H, thickness: W },
-  // Kitchen wall (horizontal, bottom area)
-  { start: [-5, 1.5], end: [2, 1.5], height: H, thickness: W, hasDoor: true },
+  // === INTERIOR WALLS ===
+  // 1. Main vertical divider: living room | hallway/bath (x=2.75)
+  //    Goes from top wall down, with door opening
+  { start: [2.75, -3.75], end: [2.75, -0.5], height: H, thickness: W },
+  { start: [2.75, 0.4], end: [2.75, 3.75], height: H, thickness: W },
+
+  // 2. Kitchen: horizontal wall at z=1.15, from left wall partway across
+  { start: [-5.25, 1.15], end: [-2.5, 1.15], height: H, thickness: W, hasDoor: true },
+
+  // 3. Kitchen: right wall going down
+  { start: [-1.75, 1.15], end: [-1.75, 3.75], height: H, thickness: W },
+
+  // 4. Hallway / bathroom horizontal divider (z=-0.75)
+  { start: [2.75, -0.75], end: [5.25, -0.75], height: H, thickness: W, hasDoor: true },
+
+  // 5. Bathroom left wall (x=3.75), separates bath from spiral staircase area
+  { start: [3.75, -0.75], end: [3.75, 1.05], height: H, thickness: W },
+
+  // 6. Bathroom bottom wall
+  { start: [2.75, 1.05], end: [3.75, 1.05], height: H, thickness: W },
 ];
 
 export const roomLabels: RoomLabel[] = [
-  { text: "Wohnzimmer", area: "39,8 m²", position: [-1.5, -1.5] },
-  { text: "Küche", area: "9,1 m²", position: [-1.5, 2.8] },
-  { text: "Flur", area: "7,1 m²", position: [2.8, -1] },
-  { text: "Bad", area: "2,7 m²", position: [4.2, 2.5] },
+  { text: "Wohnzimmer", area: "39,8 m²", position: [-1.25, -1.25] },
+  { text: "Küche", area: "9,1 m²", position: [-3.5, 2.45] },
+  { text: "Flur", area: "7,1 m²", position: [4.0, -2.25] },
+  { text: "Bad", area: "2,7 m²", position: [3.25, 0.15] },
 ];
 
 export const furnitureCatalog: FurnitureCatalogItem[] = [
