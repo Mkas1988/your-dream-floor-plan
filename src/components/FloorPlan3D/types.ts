@@ -27,6 +27,7 @@ export interface FloorTile {
   position: [number, number];
   size: [number, number];
   color: string;
+  polygon?: [number, number][]; // world-space polygon vertices for non-rectangular rooms
 }
 
 export type FurnitureCatalogItem = {
@@ -39,8 +40,8 @@ export type FurnitureCatalogItem = {
 
 // Wizard types
 export interface BuildingConfig {
-  width: number;  // meters
-  depth: number;  // meters
+  width: number;
+  depth: number;
   wallThickness: number;
   wallHeight: number;
 }
@@ -48,10 +49,7 @@ export interface BuildingConfig {
 export interface RoomConfig {
   id: string;
   name: string;
-  x: number;      // left edge in meters from building left
-  z: number;      // top edge in meters from building top
-  width: number;  // meters
-  depth: number;  // meters
+  points: [number, number][]; // polygon vertices in building-local coords (meters from top-left corner)
   floorType: "parkett" | "fliesen" | "laminat";
   hasWindow?: boolean;
   hasDoor?: boolean;
