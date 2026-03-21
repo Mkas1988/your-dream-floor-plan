@@ -1,13 +1,13 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Html } from "@react-three/drei";
-import { walls, roomLabels } from "./constants";
 import { Wall } from "./Wall";
 import { Floor } from "./Floor";
 import { FurniturePiece } from "./FurniturePiece";
-import { FurnitureItem } from "./types";
+import { FurnitureItem, FloorData } from "./types";
 import * as THREE from "three";
 
 interface SceneProps {
+  floorData: FloorData;
   furniture: FurnitureItem[];
   selectedId: string | null;
   selectedCatalogType: string | null;
@@ -16,11 +16,11 @@ interface SceneProps {
   onPlaceFurniture: (point: THREE.Vector3) => void;
 }
 
-const RoomLabels = () => (
+const RoomLabels = ({ labels }: { labels: FloorData["roomLabels"] }) => (
   <>
-    {roomLabels.map((label) => (
+    {labels.map((label, i) => (
       <Html
-        key={label.text}
+        key={`${label.text}-${i}`}
         position={[label.position[0], 0.05, label.position[1]]}
         center
         distanceFactor={10}
@@ -28,7 +28,7 @@ const RoomLabels = () => (
       >
         <div className="text-center select-none">
           <div className="text-xs font-medium text-foreground/60">{label.text}</div>
-          <div className="text-[10px] text-muted-foreground">{label.area}</div>
+          {label.area && <div className="text-[10px] text-muted-foreground">{label.area}</div>}
         </div>
       </Html>
     ))}
@@ -36,6 +36,7 @@ const RoomLabels = () => (
 );
 
 export const Scene = ({
+  floorData,
   furniture,
   selectedId,
   selectedCatalogType,
@@ -45,7 +46,7 @@ export const Scene = ({
 }: SceneProps) => {
   return (
     <Canvas shadows style={{ background: "hsl(220, 20%, 95%)" }}>
-      <PerspectiveCamera makeDefault position={[0, 12, 10]} fov={50} />
+      <PerspectiveCamera makeDefault position={[0, 14, 12]} fov={50} />
       <OrbitControls
         maxPolarAngle={Math.PI / 2.1}
         minDistance={3}
@@ -53,7 +54,6 @@ export const Scene = ({
         target={[0, 0, 0]}
       />
 
-      {/* Lighting */}
       <ambientLight intensity={0.5} />
       <directionalLight
         position={[8, 12, 5]}
@@ -64,18 +64,14 @@ export const Scene = ({
       />
       <directionalLight position={[-5, 8, -3]} intensity={0.3} />
 
-      {/* Floor */}
-      <Floor onFloorClick={onPlaceFurniture} />
+      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorData.floorTiles} />
 
-      {/* Walls */}
-      {walls.map((wall, i) => (
-        <Wall key={i} wall={wall} />
+      {floorData.walls.map((wall, i) => (
+        <Wall key={`${floorData.id}-${i}`} wall={wall} />
       ))}
 
-      {/* Room Labels */}
-      <RoomLabels />
+      <RoomLabels labels={floorData.roomLabels} />
 
-      {/* Furniture */}
       {furniture.map((item) => (
         <FurniturePiece
           key={item.id}
@@ -86,7 +82,6 @@ export const Scene = ({
         />
       ))}
 
-      {/* Grid helper */}
       <gridHelper args={[20, 20, "hsl(220, 10%, 80%)", "hsl(220, 10%, 90%)"]} position={[0, 0.01, 0]} />
     </Canvas>
   );
