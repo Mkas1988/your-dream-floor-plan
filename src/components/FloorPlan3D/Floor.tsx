@@ -9,6 +9,20 @@ interface FloorProps {
 export const Floor = ({ onFloorClick, floorTiles }: FloorProps) => {
   return (
     <group>
+      {/* Main floor base */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, 0]}
+        receiveShadow
+        onClick={(e) => {
+          e.stopPropagation();
+          onFloorClick(e.point);
+        }}
+      >
+        <planeGeometry args={[9.5, 8.0]} />
+        <meshStandardMaterial color="hsl(35, 40%, 70%)" />
+      </mesh>
+
       {/* Room floor tiles */}
       {floorTiles.map((tile, i) => (
         <mesh
@@ -25,20 +39,6 @@ export const Floor = ({ onFloorClick, floorTiles }: FloorProps) => {
           <meshStandardMaterial color={tile.color} />
         </mesh>
       ))}
-
-      {/* Main floor base */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
-        receiveShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onFloorClick(e.point);
-        }}
-      >
-        <planeGeometry args={[8, 9.5]} />
-        <meshStandardMaterial color="hsl(35, 40%, 70%)" />
-      </mesh>
 
       {/* Ground plane outside */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
