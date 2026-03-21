@@ -219,7 +219,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-4 overflow-auto bg-muted/30">
+        <div className="flex-1 flex items-center justify-center p-2 overflow-auto bg-muted/30">
           <svg
             ref={svgRef}
             width={svgW + PAD * 2}
