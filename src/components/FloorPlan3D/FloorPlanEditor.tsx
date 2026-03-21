@@ -75,9 +75,9 @@ export const FloorPlanEditor = () => {
     setSaving(true);
     const payload = {
       name: planName,
-      building_config: building as unknown as Record<string, unknown>,
-      rooms: rooms as unknown as Record<string, unknown>[],
-      furniture: furniture as unknown as Record<string, unknown>[],
+      building_config: JSON.parse(JSON.stringify(building)),
+      rooms: JSON.parse(JSON.stringify(rooms)),
+      furniture: JSON.parse(JSON.stringify(furniture)),
     };
 
     let error;
