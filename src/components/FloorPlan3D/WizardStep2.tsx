@@ -19,10 +19,10 @@ const FLOOR_TYPES = [
   { value: "laminat", label: "Laminat", color: "hsl(30, 20%, 66%)" },
 ] as const;
 
-const SCALE = 50; // px per meter
+const SCALE = 40; // px per meter
 const SNAP = 0.1;
 const CLOSE_THRESHOLD = 12;
-const CANVAS_SIZE = 20; // meters total canvas
+const CANVAS_SIZE = 16; // meters total canvas
 
 function snap(v: number): number {
   return Math.round(v / SNAP) * SNAP;
