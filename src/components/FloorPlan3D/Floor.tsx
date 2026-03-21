@@ -1,13 +1,32 @@
+import * as THREE from "three";
+import { FloorTile } from "./types";
+
 interface FloorProps {
   onFloorClick: (point: THREE.Vector3) => void;
+  floorTiles: FloorTile[];
 }
 
-import * as THREE from "three";
-
-export const Floor = ({ onFloorClick }: FloorProps) => {
+export const Floor = ({ onFloorClick, floorTiles }: FloorProps) => {
   return (
     <group>
-      {/* Main floor - wood color */}
+      {/* Room floor tiles */}
+      {floorTiles.map((tile, i) => (
+        <mesh
+          key={i}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[tile.position[0], 0.005 + i * 0.001, tile.position[1]]}
+          receiveShadow
+          onClick={(e) => {
+            e.stopPropagation();
+            onFloorClick(e.point);
+          }}
+        >
+          <planeGeometry args={[tile.size[0], tile.size[1]]} />
+          <meshStandardMaterial color={tile.color} />
+        </mesh>
+      ))}
+
+      {/* Main floor base */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
@@ -17,41 +36,13 @@ export const Floor = ({ onFloorClick }: FloorProps) => {
           onFloorClick(e.point);
         }}
       >
-        <planeGeometry args={[10.5, 7.5]} />
-        <meshStandardMaterial color="hsl(35, 45%, 72%)" />
+        <planeGeometry args={[8, 9.5]} />
+        <meshStandardMaterial color="hsl(35, 40%, 70%)" />
       </mesh>
 
-      {/* Kitchen floor - tile color */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[-3.5, 0.005, 2.45]}
-        receiveShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onFloorClick(e.point);
-        }}
-      >
-        <planeGeometry args={[3.5, 2.6]} />
-        <meshStandardMaterial color="hsl(220, 8%, 65%)" />
-      </mesh>
-
-      {/* Bathroom floor - tile color */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[3.25, 0.005, 0.15]}
-        receiveShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onFloorClick(e.point);
-        }}
-      >
-        <planeGeometry args={[1.0, 1.8]} />
-        <meshStandardMaterial color="hsl(200, 10%, 78%)" />
-      </mesh>
-
-      {/* Ground plane outside the building */}
+      {/* Ground plane outside */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[25, 20]} />
+        <planeGeometry args={[20, 16]} />
         <meshStandardMaterial color="hsl(120, 15%, 78%)" />
       </mesh>
     </group>
