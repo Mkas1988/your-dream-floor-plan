@@ -4,9 +4,11 @@ import { FloorTile } from "./types";
 interface FloorProps {
   onFloorClick: (point: THREE.Vector3) => void;
   floorTiles: FloorTile[];
+  buildingWidth?: number;
+  buildingDepth?: number;
 }
 
-export const Floor = ({ onFloorClick, floorTiles }: FloorProps) => {
+export const Floor = ({ onFloorClick, floorTiles, buildingWidth = 9.5, buildingDepth = 8.0 }: FloorProps) => {
   return (
     <group>
       {/* Main floor base */}
@@ -19,7 +21,7 @@ export const Floor = ({ onFloorClick, floorTiles }: FloorProps) => {
           onFloorClick(e.point);
         }}
       >
-        <planeGeometry args={[9.5, 8.0]} />
+        <planeGeometry args={[buildingWidth, buildingDepth]} />
         <meshStandardMaterial color="hsl(35, 40%, 70%)" />
       </mesh>
 

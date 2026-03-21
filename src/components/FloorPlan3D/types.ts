@@ -36,3 +36,29 @@ export type FurnitureCatalogItem = {
   color: string;
   icon: string;
 };
+
+// Wizard types
+export interface BuildingConfig {
+  width: number;  // meters
+  depth: number;  // meters
+  wallThickness: number;
+  wallHeight: number;
+}
+
+export interface RoomConfig {
+  id: string;
+  name: string;
+  x: number;      // left edge in meters from building left
+  z: number;      // top edge in meters from building top
+  width: number;  // meters
+  depth: number;  // meters
+  floorType: "parkett" | "fliesen" | "laminat";
+  hasWindow?: boolean;
+  hasDoor?: boolean;
+}
+
+export const FLOOR_COLORS: Record<string, string> = {
+  parkett: "hsl(35, 45%, 72%)",
+  fliesen: "hsl(220, 8%, 75%)",
+  laminat: "hsl(30, 20%, 66%)",
+};
