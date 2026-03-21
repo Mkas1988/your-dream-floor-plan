@@ -4,80 +4,81 @@ import { WallSegment, RoomLabel, FloorTile, FurnitureCatalogItem } from "./types
 // ERDGESCHOSS (Ground Floor) — Rechte Doppelhaushälfte
 // Building: 9.50m (width) × 8.00m (depth)
 // Centered at origin: X: -4.75 to 4.75, Z: -4.0 to 4.0
-// North (top of plan) = -Z, South (party wall) = +Z
-// West (left/entry) = -X, East (right/Wohn-Essraum) = +X
-// Wall thickness: 0.24m
+//
+// ORIENTATION (matching floor plan image):
+// Nord (top) = -Z = Trennwand (party wall, NO windows)
+// Süd (bottom) = +Z = Eingang (entry door)
+// West (left) = -X = Küche/Diele side (windows)
+// Ost (right) = +X = Wohn-Essraum side (windows)
+//
+// Wall thickness: 0.24m, Height: 2.6m
 // ============================================================
 
 const W = 0.24;
 const H = 2.6;
 
-// Key X coordinates:
-// West outer: -4.75, inner: -4.51
-// Main vertical wall center: -0.37  (left column = 4.02m clear)
-// WC/bath east wall: 1.2
-// East inner: 4.51, outer: 4.75
-
-// Key Z coordinates:
-// North outer: -4.0, inner: -3.76
-// Küche south wall center: -1.30  (Küche depth = 2.34m clear)
-// Small rooms south: 0.9
-// South inner: 3.76, outer: 4.0
+// X coords: West outer -4.75, inner -4.51
+//   Küche east wall center: -2.05 (clear 2.34m)
+//   Flur/WC east wall center: -0.43 (Flur clear 1.38m)
+//   East inner 4.51, outer 4.75
+// Z coords: North outer -4.0, inner -3.76
+//   Küche/Treppe south wall center: 0.38 (Küche depth 4.02m)
+//   Flur/WC divider center: 1.7
+//   South inner 3.76, outer 4.0
 
 export const walls: WallSegment[] = [
   // === OUTER WALLS ===
-  { start: [-4.75, -4.0], end: [4.75, -4.0], height: H, thickness: W, hasWindow: true },   // North - windows
-  { start: [4.75, -4.0], end: [4.75, 4.0], height: H, thickness: W, hasWindow: true },     // East - Wohn-Essraum windows
-  { start: [4.75, 4.0], end: [-4.75, 4.0], height: H, thickness: W },                       // South - party wall
-  { start: [-4.75, 4.0], end: [-4.75, -4.0], height: H, thickness: W, hasDoor: true },      // West - entry door
+  // Nord — Trennwand (party wall, NO windows)
+  { start: [-4.75, -4.0], end: [4.75, -4.0], height: H, thickness: W },
+  // Ost — Wohn-Essraum windows
+  { start: [4.75, -4.0], end: [4.75, 4.0], height: H, thickness: W, hasWindow: true },
+  // Süd — Eingang with door
+  { start: [4.75, 4.0], end: [-4.75, 4.0], height: H, thickness: W, hasDoor: true },
+  // West — Küche/Diele windows
+  { start: [-4.75, 4.0], end: [-4.75, -4.0], height: H, thickness: W, hasWindow: true },
 
-  // === MAIN VERTICAL WALL x = -0.37 ===
-  // Upper: between Küche and staircase area
-  { start: [-0.37, -4.0], end: [-0.37, -1.42], height: H, thickness: W },
-  // Middle: between Diele and Flur/WC — with door opening
-  { start: [-0.37, -1.42], end: [-0.37, -0.6], height: H, thickness: W },
-  { start: [-0.37, 0.3], end: [-0.37, 4.0], height: H, thickness: W },
+  // === MAIN VERTICAL WALL X = -2.05 ===
+  // Top section: Küche east / Treppe west (north to horizontal wall)
+  { start: [-2.05, -4.0], end: [-2.05, 0.38], height: H, thickness: W },
+  // Bottom section: Diele east / Flur-WC west (horizontal wall to south) — with door
+  { start: [-2.05, 0.38], end: [-2.05, 4.0], height: H, thickness: W, hasDoor: true },
 
-  // === HORIZONTAL WALL z = -1.30 (Küche south / staircase south) ===
-  // Küche south wall with door
-  { start: [-4.75, -1.30], end: [-0.37, -1.30], height: H, thickness: W, hasDoor: true },
-  // Right side: staircase south wall — gap for stair access
-  { start: [-0.37, -1.30], end: [1.2, -1.30], height: H, thickness: W },
-  { start: [2.8, -1.30], end: [4.75, -1.30], height: H, thickness: W },
+  // === HORIZONTAL WALL Z = 0.38 ===
+  // Left: separates Küche (north) from Diele (south) — with door
+  { start: [-4.75, 0.38], end: [-2.05, 0.38], height: H, thickness: W, hasDoor: true },
+  // Right: separates Treppe from Flur/WC/Wohn-Essraum corridor
+  { start: [-2.05, 0.38], end: [-0.43, 0.38], height: H, thickness: W },
 
-  // === SMALL ROOMS: FLUR / WC / BAD ===
-  // Vertical wall at x = 1.2 (WC/Bath east wall, separating from Wohn-Essraum)
-  { start: [1.2, -1.30], end: [1.2, 0.9], height: H, thickness: W, hasDoor: true },
+  // === SECONDARY VERTICAL WALL X = -0.43 ===
+  // Flur/WC east wall, separates from Wohn-Essraum — with door
+  { start: [-0.43, 0.38], end: [-0.43, 3.2], height: H, thickness: W, hasDoor: true },
 
-  // Horizontal divider between Flur and WC at z = -0.2
-  { start: [-0.37, -0.2], end: [1.2, -0.2], height: H, thickness: W, hasDoor: true },
-
-  // Horizontal wall: WC/Bath south at z = 0.9
-  { start: [-0.37, 0.9], end: [1.2, 0.9], height: H, thickness: W },
+  // === FLUR / WC HORIZONTAL DIVIDER Z = 1.7 ===
+  { start: [-2.05, 1.7], end: [-0.43, 1.7], height: H, thickness: W, hasDoor: true },
 ];
 
 export const roomLabels: RoomLabel[] = [
-  { text: "Küche", area: "4,02 × 2,34", position: [-2.5, -2.5] },
-  { text: "Treppe", position: [2.0, -2.8] },
-  { text: "Diele", area: "3,25", position: [-2.5, 1.5] },
-  { text: "Flur", position: [0.4, -0.8] },
-  { text: "WC", position: [0.4, 0.35] },
-  { text: "Wohn-Essraum", area: "~4,02 × 4,55", position: [3.0, 1.5] },
+  { text: "Küche", area: "2,34 × 4,02 m", position: [-3.3, -1.7] },
+  { text: "Treppe", position: [1.2, -1.7] },
+  { text: "Diele", area: "~3,25 m²", position: [-3.3, 2.1] },
+  { text: "Flur", position: [-1.24, 1.0] },
+  { text: "WC", position: [-1.24, 2.5] },
+  { text: "Wohn-Essraum", area: "~28 m²", position: [2.1, 2.0] },
 ];
 
 export const floorTiles: FloorTile[] = [
-  // Küche - tiles
-  { position: [-2.5, -2.5], size: [4.0, 2.3], color: "hsl(220, 8%, 72%)" },
-  // Staircase area
-  { position: [2.2, -2.8], size: [4.5, 2.3], color: "hsl(30, 15%, 65%)" },
-  // Diele - tiles
-  { position: [-2.5, 1.5], size: [4.0, 4.8], color: "hsl(30, 15%, 65%)" },
-  // Flur - tiles
-  { position: [0.4, -0.8], size: [1.3, 1.0], color: "hsl(30, 12%, 68%)" },
-  // WC - tiles
-  { position: [0.4, 0.35], size: [1.3, 0.9], color: "hsl(200, 10%, 78%)" },
-  // Wohn-Essraum - wood parquet
-  { position: [3.0, 1.5], size: [3.3, 5.0], color: "hsl(35, 45%, 72%)" },
+  // Küche — tiles (light gray)
+  { position: [-3.3, -1.7], size: [2.3, 4.0], color: "hsl(220, 8%, 75%)" },
+  // Treppe area — neutral
+  { position: [1.2, -1.7], size: [5.4, 4.0], color: "hsl(30, 12%, 68%)" },
+  // Diele — warm wood
+  { position: [-3.3, 2.1], size: [2.3, 3.2], color: "hsl(30, 20%, 65%)" },
+  // Flur — tiles
+  { position: [-1.24, 1.0], size: [1.4, 1.1], color: "hsl(30, 12%, 70%)" },
+  // WC — light blue tiles
+  { position: [-1.24, 2.5], size: [1.4, 1.3], color: "hsl(200, 10%, 80%)" },
+  // Wohn-Essraum — wood parquet (large room right side)
+  { position: [2.1, 0.0], size: [4.8, 7.5], color: "hsl(35, 45%, 72%)" },
 ];
 
 export const furnitureCatalog: FurnitureCatalogItem[] = [
