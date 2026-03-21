@@ -1,16 +1,35 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Scene } from "./Scene";
 import { Sidebar } from "./Sidebar";
-import { FurnitureItem } from "./types";
+import { WizardStep1 } from "./WizardStep1";
+import { WizardStep2 } from "./WizardStep2";
+import { FurnitureItem, BuildingConfig, RoomConfig } from "./types";
 import { furnitureCatalog } from "./constants";
+import { generateWalls, generateFloorTiles, generateRoomLabels } from "./generatePlan";
 import * as THREE from "three";
+import { ArrowLeft } from "lucide-react";
 
 let idCounter = 0;
 
+type WizardStep = "dimensions" | "rooms" | "3d";
+
 export const FloorPlanEditor = () => {
+  const [step, setStep] = useState<WizardStep>("dimensions");
+  const [building, setBuilding] = useState<BuildingConfig>({
+    width: 9.5,
+    depth: 8.0,
+    wallThickness: 0.24,
+    wallHeight: 2.6,
+  });
+  const [rooms, setRooms] = useState<RoomConfig[]>([]);
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCatalogType, setSelectedCatalogType] = useState<string | null>(null);
+
+  // Generate 3D data from wizard config
+  const walls = useMemo(() => generateWalls(building, rooms), [building, rooms]);
+  const floorTiles = useMemo(() => generateFloorTiles(building, rooms), [building, rooms]);
+  const roomLabels = useMemo(() => generateRoomLabels(building, rooms), [building, rooms]);
 
   const handlePlaceFurniture = useCallback(
     (point: THREE.Vector3) => {
@@ -53,6 +72,29 @@ export const FloorPlanEditor = () => {
     );
   }, []);
 
+  if (step === "dimensions") {
+    return (
+      <WizardStep1
+        config={building}
+        onChange={setBuilding}
+        onNext={() => setStep("rooms")}
+      />
+    );
+  }
+
+  if (step === "rooms") {
+    return (
+      <WizardStep2
+        building={building}
+        rooms={rooms}
+        onChange={setRooms}
+        onBack={() => setStep("dimensions")}
+        onFinish={() => setStep("3d")}
+      />
+    );
+  }
+
+  // 3D view
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <div className="flex-1 relative">
@@ -63,13 +105,26 @@ export const FloorPlanEditor = () => {
           onSelectFurniture={setSelectedId}
           onMoveFurniture={handleMoveFurniture}
           onPlaceFurniture={handlePlaceFurniture}
+          walls={walls}
+          roomLabels={roomLabels}
+          floorTiles={floorTiles}
+          buildingWidth={building.width}
+          buildingDepth={building.depth}
         />
 
-        <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-xl px-4 py-3 shadow-lg">
-          <h1 className="text-base font-semibold text-foreground">Erdgeschoss — 3D Planer</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Rechte DHH · 9,50 × 8,00 m · Mausrad: Zoom · Rechtsklick: Drehen
-          </p>
+        <div className="absolute top-4 left-4 flex items-center gap-2">
+          <button
+            onClick={() => setStep("rooms")}
+            className="p-2.5 bg-card/90 backdrop-blur-sm border border-border rounded-xl shadow-lg hover:bg-accent/10 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-foreground" />
+          </button>
+          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-xl px-4 py-3 shadow-lg">
+            <h1 className="text-base font-semibold text-foreground">3D Planer</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {building.width}×{building.depth}m · {rooms.length} Räume · Mausrad: Zoom · Rechtsklick: Drehen
+            </p>
+          </div>
         </div>
 
         {selectedCatalogType && (

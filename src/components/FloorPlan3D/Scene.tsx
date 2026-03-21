@@ -1,11 +1,9 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Html } from "@react-three/drei";
-import { walls, roomLabels } from "./constants";
 import { Wall } from "./Wall";
 import { Floor } from "./Floor";
 import { FurniturePiece } from "./FurniturePiece";
-import { FurnitureItem } from "./types";
-import { floorTiles } from "./constants";
+import { FurnitureItem, WallSegment, RoomLabel, FloorTile } from "./types";
 import * as THREE from "three";
 
 interface SceneProps {
@@ -15,11 +13,16 @@ interface SceneProps {
   onSelectFurniture: (id: string) => void;
   onMoveFurniture: (id: string, position: [number, number, number]) => void;
   onPlaceFurniture: (point: THREE.Vector3) => void;
+  walls: WallSegment[];
+  roomLabels: RoomLabel[];
+  floorTiles: FloorTile[];
+  buildingWidth: number;
+  buildingDepth: number;
 }
 
-const RoomLabels = () => (
+const RoomLabels = ({ labels }: { labels: RoomLabel[] }) => (
   <>
-    {roomLabels.map((label, i) => (
+    {labels.map((label, i) => (
       <Html
         key={`${label.text}-${i}`}
         position={[label.position[0], 0.05, label.position[1]]}
@@ -43,6 +46,11 @@ export const Scene = ({
   onSelectFurniture,
   onMoveFurniture,
   onPlaceFurniture,
+  walls,
+  roomLabels,
+  floorTiles,
+  buildingWidth,
+  buildingDepth,
 }: SceneProps) => {
   return (
     <Canvas shadows style={{ background: "hsl(220, 20%, 95%)" }}>
@@ -64,13 +72,13 @@ export const Scene = ({
       />
       <directionalLight position={[-5, 8, -3]} intensity={0.3} />
 
-      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorTiles} />
+      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorTiles} buildingWidth={buildingWidth} buildingDepth={buildingDepth} />
 
       {walls.map((wall, i) => (
         <Wall key={i} wall={wall} />
       ))}
 
-      <RoomLabels />
+      <RoomLabels labels={roomLabels} />
 
       {furniture.map((item) => (
         <FurniturePiece
