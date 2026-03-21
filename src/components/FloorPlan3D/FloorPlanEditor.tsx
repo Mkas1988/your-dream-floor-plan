@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Scene } from "./Scene";
 import { Sidebar } from "./Sidebar";
 import { WizardStep1 } from "./WizardStep1";
@@ -6,15 +6,28 @@ import { WizardStep2 } from "./WizardStep2";
 import { FurnitureItem, BuildingConfig, RoomConfig } from "./types";
 import { furnitureCatalog } from "./constants";
 import { generateWalls, generateFloorTiles, generateRoomLabels } from "./generatePlan";
+import { supabase } from "@/integrations/supabase/client";
 import * as THREE from "three";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save, FolderOpen, Plus, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 let idCounter = 0;
 
-type WizardStep = "dimensions" | "rooms" | "3d";
+type WizardStep = "home" | "dimensions" | "rooms" | "3d";
+
+interface SavedPlan {
+  id: string;
+  name: string;
+  building_config: BuildingConfig;
+  rooms: RoomConfig[];
+  furniture: FurnitureItem[];
+  updated_at: string;
+}
 
 export const FloorPlanEditor = () => {
-  const [step, setStep] = useState<WizardStep>("dimensions");
+  const [step, setStep] = useState<WizardStep>("home");
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [planName, setPlanName] = useState("Mein Grundriss");
   const [building, setBuilding] = useState<BuildingConfig>({
     width: 9.5,
     depth: 8.0,
@@ -25,8 +38,99 @@ export const FloorPlanEditor = () => {
   const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCatalogType, setSelectedCatalogType] = useState<string | null>(null);
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Generate 3D data from wizard config
+  // Load saved plans on mount
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
+  const loadPlans = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("floor_plans")
+      .select("*")
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      toast.error("Fehler beim Laden: " + error.message);
+    } else {
+      setSavedPlans(
+        (data || []).map((d) => ({
+          id: d.id,
+          name: d.name,
+          building_config: d.building_config as unknown as BuildingConfig,
+          rooms: d.rooms as unknown as RoomConfig[],
+          furniture: d.furniture as unknown as FurnitureItem[],
+          updated_at: d.updated_at,
+        }))
+      );
+    }
+    setLoading(false);
+  };
+
+  const savePlan = async () => {
+    setSaving(true);
+    const payload = {
+      name: planName,
+      building_config: JSON.parse(JSON.stringify(building)),
+      rooms: JSON.parse(JSON.stringify(rooms)),
+      furniture: JSON.parse(JSON.stringify(furniture)),
+    };
+
+    let error;
+    if (planId) {
+      ({ error } = await supabase.from("floor_plans").update(payload).eq("id", planId));
+    } else {
+      const result = await supabase.from("floor_plans").insert(payload).select("id").single();
+      error = result.error;
+      if (result.data) setPlanId(result.data.id);
+    }
+
+    if (error) {
+      toast.error("Fehler beim Speichern: " + error.message);
+    } else {
+      toast.success("Grundriss gespeichert!");
+      loadPlans();
+    }
+    setSaving(false);
+  };
+
+  const loadPlan = (plan: SavedPlan) => {
+    setPlanId(plan.id);
+    setPlanName(plan.name);
+    setBuilding(plan.building_config);
+    setRooms(plan.rooms);
+    setFurniture(plan.furniture);
+    setStep("3d");
+  };
+
+  const deletePlan = async (id: string) => {
+    const { error } = await supabase.from("floor_plans").delete().eq("id", id);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+    } else {
+      toast.success("Gelöscht");
+      if (planId === id) {
+        setPlanId(null);
+        setPlanName("Mein Grundriss");
+      }
+      loadPlans();
+    }
+  };
+
+  const startNew = () => {
+    setPlanId(null);
+    setPlanName("Mein Grundriss");
+    setBuilding({ width: 9.5, depth: 8.0, wallThickness: 0.24, wallHeight: 2.6 });
+    setRooms([]);
+    setFurniture([]);
+    setStep("dimensions");
+  };
+
+  // Generate 3D data
   const walls = useMemo(() => generateWalls(building, rooms), [building, rooms]);
   const floorTiles = useMemo(() => generateFloorTiles(building, rooms), [building, rooms]);
   const roomLabels = useMemo(() => generateRoomLabels(building, rooms), [building, rooms]);
@@ -36,7 +140,6 @@ export const FloorPlanEditor = () => {
       if (!selectedCatalogType) return;
       const catalogItem = furnitureCatalog.find((c) => c.type === selectedCatalogType);
       if (!catalogItem) return;
-
       const newItem: FurnitureItem = {
         id: `furniture-${++idCounter}`,
         type: catalogItem.type,
@@ -46,7 +149,6 @@ export const FloorPlanEditor = () => {
         size: catalogItem.size,
         color: catalogItem.color,
       };
-
       setFurniture((prev) => [...prev, newItem]);
       setSelectedId(newItem.id);
     },
@@ -54,9 +156,7 @@ export const FloorPlanEditor = () => {
   );
 
   const handleMoveFurniture = useCallback((id: string, position: [number, number, number]) => {
-    setFurniture((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, position } : f))
-    );
+    setFurniture((prev) => prev.map((f) => (f.id === id ? { ...f, position } : f)));
   }, []);
 
   const handleDelete = useCallback((id: string) => {
@@ -66,11 +166,75 @@ export const FloorPlanEditor = () => {
 
   const handleRotate = useCallback((id: string) => {
     setFurniture((prev) =>
-      prev.map((f) =>
-        f.id === id ? { ...f, rotation: f.rotation + Math.PI / 4 } : f
-      )
+      prev.map((f) => (f.id === id ? { ...f, rotation: f.rotation + Math.PI / 4 } : f))
     );
   }, []);
+
+  // HOME — list saved plans
+  if (step === "home") {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-background">
+        <div className="w-full max-w-lg mx-auto p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <FolderOpen className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">3D Grundriss Planer</h1>
+              <p className="text-sm text-muted-foreground">Erstelle und verwalte deine Grundrisse</p>
+            </div>
+          </div>
+
+          <button
+            onClick={startNew}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors mb-6"
+          >
+            <Plus className="w-4 h-4" />
+            Neuen Grundriss erstellen
+          </button>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : savedPlans.length > 0 ? (
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-muted-foreground mb-3">Gespeicherte Grundrisse</h2>
+              {savedPlans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card hover:border-primary/40 transition-colors cursor-pointer group"
+                  onClick={() => loadPlan(plan)}
+                >
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-foreground">{plan.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {plan.building_config.width}×{plan.building_config.depth}m ·{" "}
+                      {plan.rooms.length} Räume ·{" "}
+                      {new Date(plan.updated_at).toLocaleDateString("de-DE")}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deletePlan(plan.id);
+                    }}
+                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Noch keine gespeicherten Grundrisse.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (step === "dimensions") {
     return (
@@ -120,11 +284,30 @@ export const FloorPlanEditor = () => {
             <ArrowLeft className="w-4 h-4 text-foreground" />
           </button>
           <div className="bg-card/90 backdrop-blur-sm border border-border rounded-xl px-4 py-3 shadow-lg">
-            <h1 className="text-base font-semibold text-foreground">3D Planer</h1>
+            <input
+              value={planName}
+              onChange={(e) => setPlanName(e.target.value)}
+              className="text-base font-semibold text-foreground bg-transparent border-none outline-none w-48"
+              placeholder="Grundriss Name"
+            />
             <p className="text-xs text-muted-foreground mt-0.5">
-              {building.width}×{building.depth}m · {rooms.length} Räume · Mausrad: Zoom · Rechtsklick: Drehen
+              {building.width}×{building.depth}m · {rooms.length} Räume
             </p>
           </div>
+          <button
+            onClick={savePlan}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl shadow-lg font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Speichern
+          </button>
+          <button
+            onClick={() => setStep("home")}
+            className="px-3 py-2.5 bg-card/90 backdrop-blur-sm border border-border rounded-xl shadow-lg text-xs font-medium text-foreground hover:bg-accent/10 transition-colors"
+          >
+            <FolderOpen className="w-4 h-4" />
+          </button>
         </div>
 
         {selectedCatalogType && (
