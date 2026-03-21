@@ -3,9 +3,10 @@ import { BuildingConfig, RoomConfig, WallSegment, RoomLabel, FloorTile, FLOOR_CO
 function centroid(points: [number, number][]): [number, number] {
   const n = points.length;
   if (n === 0) return [0, 0];
-  const cx = points.reduce((s, p) => s + p[0], 0) / n;
-  const cz = points.reduce((s, p) => s + p[1], 0) / n;
-  return [cx, cz];
+  return [
+    points.reduce((s, p) => s + p[0], 0) / n,
+    points.reduce((s, p) => s + p[1], 0) / n,
+  ];
 }
 
 function polygonArea(points: [number, number][]): number {
@@ -13,135 +14,112 @@ function polygonArea(points: [number, number][]): number {
   const n = points.length;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    area += points[i][0] * points[j][1];
-    area -= points[j][0] * points[i][1];
+    area += points[i][0] * points[j][1] - points[j][0] * points[i][1];
   }
   return Math.abs(area) / 2;
 }
 
-function boundingBox(points: [number, number][]): { minX: number; minZ: number; maxX: number; maxZ: number } {
-  const xs = points.map((p) => p[0]);
-  const zs = points.map((p) => p[1]);
-  return {
-    minX: Math.min(...xs),
-    minZ: Math.min(...zs),
-    maxX: Math.max(...xs),
-    maxZ: Math.max(...zs),
-  };
+// Normalize an edge key so that the same edge in reverse maps to the same key
+function edgeKey(a: [number, number], b: [number, number]): string {
+  const ax = a[0].toFixed(3), az = a[1].toFixed(3);
+  const bx = b[0].toFixed(3), bz = b[1].toFixed(3);
+  // Canonical order: smaller point first
+  if (ax < bx || (ax === bx && az < bz)) return `${ax},${az}|${bx},${bz}`;
+  return `${bx},${bz}|${ax},${az}`;
 }
 
-// Convert building-local coords to world coords (centered at origin)
-function toWorld(p: [number, number], hw: number, hd: number): [number, number] {
-  return [p[0] - hw, p[1] - hd];
-}
-
+/**
+ * Walls are derived purely from room edges:
+ * - Edges shared by exactly 2 rooms → inner walls
+ * - Edges belonging to only 1 room → outer walls (building boundary)
+ */
 export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): WallSegment[] {
   const W = building.wallThickness;
   const H = building.wallHeight;
-  const hw = building.width / 2;
-  const hd = building.depth / 2;
 
-  // Outer walls
-  const outerWalls: WallSegment[] = [
-    { start: [-hw, -hd], end: [hw, -hd], height: H, thickness: W },
-    { start: [hw, -hd], end: [hw, hd], height: H, thickness: W },
-    { start: [hw, hd], end: [-hw, hd], height: H, thickness: W },
-    { start: [-hw, hd], end: [-hw, -hd], height: H, thickness: W },
-  ];
-
-  // Apply window/door flags from rooms that touch outer edges
-  for (const room of rooms) {
-    if (room.points.length < 3) continue;
-    const bb = boundingBox(room.points);
-
-    if (room.hasWindow) {
-      if (Math.abs(bb.minZ) < 0.05) outerWalls[0].hasWindow = true;
-      if (Math.abs(bb.maxX - building.width) < 0.05) outerWalls[1].hasWindow = true;
-      if (Math.abs(bb.maxZ - building.depth) < 0.05) outerWalls[2].hasWindow = true;
-      if (Math.abs(bb.minX) < 0.05) outerWalls[3].hasWindow = true;
-    }
-    if (room.hasDoor) {
-      if (Math.abs(bb.maxZ - building.depth) < 0.05) outerWalls[2].hasDoor = true;
-    }
-  }
-
-  // Inner walls from polygon edges
-  const innerWalls: WallSegment[] = [];
-  const edgeSet = new Set<string>();
+  // Count how many rooms share each edge
+  const edgeCounts = new Map<string, { start: [number, number]; end: [number, number]; count: number; rooms: RoomConfig[] }>();
 
   for (const room of rooms) {
     const pts = room.points;
     if (pts.length < 3) continue;
-
     for (let i = 0; i < pts.length; i++) {
-      const a = toWorld(pts[i], hw, hd);
-      const b = toWorld(pts[(i + 1) % pts.length], hw, hd);
-
-      // Skip edges on outer boundary
-      const isOuter =
-        (Math.abs(a[1] - (-hd)) < 0.05 && Math.abs(b[1] - (-hd)) < 0.05) ||
-        (Math.abs(a[1] - hd) < 0.05 && Math.abs(b[1] - hd) < 0.05) ||
-        (Math.abs(a[0] - (-hw)) < 0.05 && Math.abs(b[0] - (-hw)) < 0.05) ||
-        (Math.abs(a[0] - hw) < 0.05 && Math.abs(b[0] - hw) < 0.05);
-
-      if (isOuter) continue;
-
-      const key = [
-        Math.min(a[0], b[0]).toFixed(2),
-        Math.min(a[1], b[1]).toFixed(2),
-        Math.max(a[0], b[0]).toFixed(2),
-        Math.max(a[1], b[1]).toFixed(2),
-      ].join(",");
-
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key);
-        innerWalls.push({ start: [a[0], a[1]], end: [b[0], b[1]], height: H, thickness: W });
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      const key = edgeKey(a, b);
+      const existing = edgeCounts.get(key);
+      if (existing) {
+        existing.count++;
+        existing.rooms.push(room);
+      } else {
+        edgeCounts.set(key, { start: [a[0], a[1]], end: [b[0], b[1]], count: 1, rooms: [room] });
       }
     }
   }
 
-  return [...outerWalls, ...innerWalls];
+  const walls: WallSegment[] = [];
+  for (const [, edge] of edgeCounts) {
+    const isOuter = edge.count === 1;
+    const room = edge.rooms[0];
+
+    const wall: WallSegment = {
+      start: edge.start,
+      end: edge.end,
+      height: H,
+      thickness: isOuter ? W : W * 0.6, // inner walls thinner
+    };
+
+    // Apply window/door from touching rooms
+    if (isOuter) {
+      if (room.hasWindow) wall.hasWindow = true;
+      if (room.hasDoor) wall.hasDoor = true;
+    }
+
+    walls.push(wall);
+  }
+
+  return walls;
 }
 
-export function generateFloorTiles(building: BuildingConfig, rooms: RoomConfig[]): FloorTile[] {
-  const hw = building.width / 2;
-  const hd = building.depth / 2;
-
+export function generateFloorTiles(_building: BuildingConfig, rooms: RoomConfig[]): FloorTile[] {
   return rooms.map((room) => {
     if (room.points.length < 3) {
       return { position: [0, 0] as [number, number], size: [0, 0] as [number, number], color: FLOOR_COLORS.parkett };
     }
-
-    const worldPts = room.points.map((p) => toWorld(p, hw, hd)) as [number, number][];
-    const c = centroid(worldPts);
-    const bb = boundingBox(worldPts);
-
+    const c = centroid(room.points);
+    const xs = room.points.map((p) => p[0]);
+    const zs = room.points.map((p) => p[1]);
     return {
       position: c,
-      size: [bb.maxX - bb.minX, bb.maxZ - bb.minZ] as [number, number],
+      size: [Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)] as [number, number],
       color: FLOOR_COLORS[room.floorType] || FLOOR_COLORS.parkett,
-      polygon: worldPts,
+      polygon: room.points,
     };
   });
 }
 
-export function generateRoomLabels(building: BuildingConfig, rooms: RoomConfig[]): RoomLabel[] {
-  const hw = building.width / 2;
-  const hd = building.depth / 2;
-
+export function generateRoomLabels(_building: BuildingConfig, rooms: RoomConfig[]): RoomLabel[] {
   return rooms.map((room) => {
     if (room.points.length < 3) {
       return { text: room.name, position: [0, 0] as [number, number] };
     }
-
-    const worldPts = room.points.map((p) => toWorld(p, hw, hd)) as [number, number][];
-    const c = centroid(worldPts);
-    const area = polygonArea(worldPts);
-
+    const c = centroid(room.points);
+    const area = polygonArea(room.points);
     return {
       text: room.name,
       area: `${area.toFixed(1)} m²`,
       position: c,
     };
   });
+}
+
+/** Compute bounding box of all rooms */
+export function computeBuildingBounds(rooms: RoomConfig[]): { minX: number; minZ: number; maxX: number; maxZ: number; width: number; depth: number } {
+  if (rooms.length === 0) return { minX: -5, minZ: -4, maxX: 5, maxZ: 4, width: 10, depth: 8 };
+  const allPts = rooms.flatMap((r) => r.points);
+  const minX = Math.min(...allPts.map((p) => p[0]));
+  const maxX = Math.max(...allPts.map((p) => p[0]));
+  const minZ = Math.min(...allPts.map((p) => p[1]));
+  const maxZ = Math.max(...allPts.map((p) => p[1]));
+  return { minX, minZ, maxX, maxZ, width: maxX - minX, depth: maxZ - minZ };
 }
