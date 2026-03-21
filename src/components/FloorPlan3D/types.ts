@@ -15,7 +15,6 @@ export interface FurnitureItem {
   rotation: number;
   size: [number, number, number];
   color: string;
-  floor: FloorId;
 }
 
 export interface RoomLabel {
@@ -29,16 +28,6 @@ export interface FloorTile {
   size: [number, number];
   color: string;
 }
-
-export interface FloorData {
-  id: FloorId;
-  label: string;
-  walls: WallSegment[];
-  roomLabels: RoomLabel[];
-  floorTiles: FloorTile[];
-}
-
-export type FloorId = "KG" | "EG" | "OG" | "DG";
 
 export type FurnitureCatalogItem = {
   type: string;

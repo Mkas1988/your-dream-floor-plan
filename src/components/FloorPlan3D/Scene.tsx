@@ -1,13 +1,14 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Html } from "@react-three/drei";
+import { walls, roomLabels } from "./constants";
 import { Wall } from "./Wall";
 import { Floor } from "./Floor";
 import { FurniturePiece } from "./FurniturePiece";
-import { FurnitureItem, FloorData } from "./types";
+import { FurnitureItem } from "./types";
+import { floorTiles } from "./constants";
 import * as THREE from "three";
 
 interface SceneProps {
-  floorData: FloorData;
   furniture: FurnitureItem[];
   selectedId: string | null;
   selectedCatalogType: string | null;
@@ -16,9 +17,9 @@ interface SceneProps {
   onPlaceFurniture: (point: THREE.Vector3) => void;
 }
 
-const RoomLabels = ({ labels }: { labels: FloorData["roomLabels"] }) => (
+const RoomLabels = () => (
   <>
-    {labels.map((label, i) => (
+    {roomLabels.map((label, i) => (
       <Html
         key={`${label.text}-${i}`}
         position={[label.position[0], 0.05, label.position[1]]}
@@ -36,7 +37,6 @@ const RoomLabels = ({ labels }: { labels: FloorData["roomLabels"] }) => (
 );
 
 export const Scene = ({
-  floorData,
   furniture,
   selectedId,
   selectedCatalogType,
@@ -64,13 +64,13 @@ export const Scene = ({
       />
       <directionalLight position={[-5, 8, -3]} intensity={0.3} />
 
-      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorData.floorTiles} />
+      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorTiles} />
 
-      {floorData.walls.map((wall, i) => (
-        <Wall key={`${floorData.id}-${i}`} wall={wall} />
+      {walls.map((wall, i) => (
+        <Wall key={i} wall={wall} />
       ))}
 
-      <RoomLabels labels={floorData.roomLabels} />
+      <RoomLabels />
 
       {furniture.map((item) => (
         <FurniturePiece
