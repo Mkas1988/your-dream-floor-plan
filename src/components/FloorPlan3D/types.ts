@@ -53,6 +53,7 @@ export interface RoomConfig {
   hasWindow?: boolean;
   hasDoor?: boolean;
   noWallEdges?: number[]; // indices of edges that should NOT generate a wall
+  edgeThickness?: Record<number, number>; // per-edge wall thickness override (in meters)
 }
 
 export const FLOOR_COLORS: Record<string, string> = {
