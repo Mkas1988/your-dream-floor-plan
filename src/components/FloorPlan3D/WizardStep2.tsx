@@ -1016,40 +1016,96 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
 
                 {/* Wall edge dimensions */}
                 <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wandlängen</label>
-                  <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wände</label>
+                  <div className="space-y-1">
                     {selectedRoom.points.map((pt, idx) => {
                       const next = selectedRoom.points[(idx + 1) % selectedRoom.points.length];
                       const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
                       const noWallSet = new Set(selectedRoom.noWallEdges || []);
                       const isNoWall = noWallSet.has(idx);
+                      const isEdgeSel = selectedEdgeIdx === idx;
+                      const thickness = selectedRoom.edgeThickness?.[idx] ?? building.wallThickness;
                       return (
-                        <div key={idx} className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground w-12 flex-shrink-0">Wand {idx + 1}</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            value={parseFloat(len.toFixed(2))}
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
-                              if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
-                            }}
-                            className={`flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 ${isNoWall ? "opacity-50" : ""}`}
-                          />
-                          <span className="text-[10px] text-muted-foreground">m</span>
-                          <button
-                            onClick={() => {
-                              const edges = new Set(selectedRoom.noWallEdges || []);
-                              if (edges.has(idx)) edges.delete(idx);
-                              else edges.add(idx);
-                              updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
-                            }}
-                            className={`p-1 rounded text-[10px] font-medium transition-colors flex-shrink-0 ${isNoWall ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                            title={isNoWall ? "Wand wiederherstellen" : "Wand entfernen"}
+                        <div key={idx}>
+                          <div
+                            className={`flex items-center gap-1.5 p-1.5 rounded-md cursor-pointer transition-colors ${isEdgeSel ? "bg-primary/10 border border-primary/30" : "hover:bg-muted"}`}
+                            onClick={() => setSelectedEdgeIdx(isEdgeSel ? null : idx)}
                           >
-                            {isNoWall ? "✕" : "🧱"}
-                          </button>
+                            <span className={`text-[10px] w-12 flex-shrink-0 font-medium ${isNoWall ? "text-destructive line-through" : "text-muted-foreground"}`}>
+                              Wand {idx + 1}
+                            </span>
+                            <span className="text-[10px] text-foreground flex-1">{len.toFixed(2)}m</span>
+                            <span className="text-[10px] text-muted-foreground">{(thickness * 100).toFixed(0)}cm</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const edges = new Set(selectedRoom.noWallEdges || []);
+                                if (edges.has(idx)) edges.delete(idx);
+                                else edges.add(idx);
+                                updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
+                              }}
+                              className={`p-0.5 rounded text-[10px] font-medium transition-colors flex-shrink-0 ${isNoWall ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                              title={isNoWall ? "Wand wiederherstellen" : "Wand entfernen"}
+                            >
+                              {isNoWall ? "✕" : "🧱"}
+                            </button>
+                          </div>
+                          {/* Expanded wall details */}
+                          {isEdgeSel && (
+                            <div className="ml-2 mt-1 mb-2 p-2 rounded-md border border-border bg-background space-y-2">
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Länge (m)</label>
+                                  <input
+                                    type="number" step="0.01" min="0.01"
+                                    value={parseFloat(len.toFixed(2))}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value);
+                                      if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
+                                    }}
+                                    className="w-full px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Dicke (m)</label>
+                                  <input
+                                    type="number" step="0.01" min="0.05" max="1"
+                                    value={thickness}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value);
+                                      if (!isNaN(v) && v > 0) {
+                                        const et = { ...(selectedRoom.edgeThickness || {}) };
+                                        et[idx] = v;
+                                        updateRoom(selectedRoom.id, { edgeThickness: et });
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <label className="flex items-center gap-1 text-[10px] text-foreground">
+                                  <input type="checkbox" checked={!isNoWall} onChange={() => {
+                                    const edges = new Set(selectedRoom.noWallEdges || []);
+                                    if (edges.has(idx)) edges.delete(idx);
+                                    else edges.add(idx);
+                                    updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
+                                  }} className="rounded border-border w-3 h-3" />
+                                  Wand aktiv
+                                </label>
+                                <button
+                                  onClick={() => {
+                                    const et = { ...(selectedRoom.edgeThickness || {}) };
+                                    delete et[idx];
+                                    updateRoom(selectedRoom.id, { edgeThickness: et });
+                                  }}
+                                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  Standard-Dicke
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
