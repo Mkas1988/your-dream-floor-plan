@@ -995,7 +995,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
                 return (
-                  <div key={room.id} onClick={() => setSelectedRoomId(room.id)}
+                  <div key={room.id} onClick={() => { setSelectedRoomId(room.id); setSelectedEdgeIdx(null); }}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{room.name}</span>
