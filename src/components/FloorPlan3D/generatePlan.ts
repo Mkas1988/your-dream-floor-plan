@@ -61,6 +61,8 @@ export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): Wa
 
   const walls: WallSegment[] = [];
   for (const [, edge] of edgeCounts) {
+    // Skip edges marked as noWall
+    if (edge.noWall) continue;
     const isOuter = edge.count === 1;
     const room = edge.rooms[0];
 
