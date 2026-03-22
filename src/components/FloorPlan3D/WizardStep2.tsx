@@ -24,7 +24,7 @@ const FLOOR_TYPES = [
   { value: "laminat", label: "Laminat", color: "hsl(30, 20%, 66%)" },
 ] as const;
 
-const SNAP = 0.25;
+const SNAP = 0.01;
 const CLOSE_DIST = 0.4;
 
 function snap(v: number): number {
