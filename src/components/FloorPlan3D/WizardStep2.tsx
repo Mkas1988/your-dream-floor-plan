@@ -84,6 +84,10 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const [mouseWorld, setMouseWorld] = useState<[number, number] | null>(null);
   const [drag, setDrag] = useState<DragState>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddRoom, setShowAddRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("Neuer Raum");
+  const [newRoomWidth, setNewRoomWidth] = useState("4");
+  const [newRoomDepth, setNewRoomDepth] = useState("3");
 
   const [viewCenter, setViewCenter] = useState<[number, number]>([0, 0]);
   const [zoom, setZoom] = useState(50);
