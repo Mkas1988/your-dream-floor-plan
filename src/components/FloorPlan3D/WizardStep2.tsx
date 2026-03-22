@@ -148,6 +148,105 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     return [world.x, world.y];
   }, []);
 
+  // Snap a point to nearby existing vertices (outline + other rooms)
+  const snapToVertices = useCallback((pt: [number, number], excludeRoomId?: string): [number, number] => {
+    let best: [number, number] = pt;
+    let bestDist = SNAP_VERTEX_DIST;
+    for (const v of outline) {
+      const d = Math.hypot(pt[0] - v[0], pt[1] - v[1]);
+      if (d < bestDist) { bestDist = d; best = [...v]; }
+    }
+    for (const room of rooms) {
+      if (room.id === excludeRoomId) continue;
+      for (const v of room.points) {
+        const d = Math.hypot(pt[0] - v[0], pt[1] - v[1]);
+        if (d < bestDist) { bestDist = d; best = [...v]; }
+      }
+    }
+    return best;
+  }, [outline, rooms]);
+
+  // Find shared edges between two rooms (edges with matching vertex pairs)
+  const findSharedEdges = useCallback((roomA: RoomConfig, roomB: RoomConfig): { aIdx: number; bIdx: number }[] => {
+    const shared: { aIdx: number; bIdx: number }[] = [];
+    const EPS = 0.05;
+    for (let ai = 0; ai < roomA.points.length; ai++) {
+      const a1 = roomA.points[ai], a2 = roomA.points[(ai + 1) % roomA.points.length];
+      for (let bi = 0; bi < roomB.points.length; bi++) {
+        const b1 = roomB.points[bi], b2 = roomB.points[(bi + 1) % roomB.points.length];
+        // Check both orientations
+        if (
+          (Math.hypot(a1[0] - b1[0], a1[1] - b1[1]) < EPS && Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) < EPS) ||
+          (Math.hypot(a1[0] - b2[0], a1[1] - b2[1]) < EPS && Math.hypot(a2[0] - b1[0], a2[1] - b1[1]) < EPS)
+        ) {
+          shared.push({ aIdx: ai, bIdx: bi });
+        }
+      }
+    }
+    return shared;
+  }, []);
+
+  // Auto-remove shared walls between all room pairs
+  const autoRemoveSharedWalls = useCallback(() => {
+    let updated = rooms.map(r => ({ ...r }));
+    for (let i = 0; i < updated.length; i++) {
+      for (let j = i + 1; j < updated.length; j++) {
+        const shared = findSharedEdges(updated[i], updated[j]);
+        for (const s of shared) {
+          const noWallA = new Set(updated[i].noWallEdges || []);
+          noWallA.add(s.aIdx);
+          updated[i] = { ...updated[i], noWallEdges: Array.from(noWallA) };
+          const noWallB = new Set(updated[j].noWallEdges || []);
+          noWallB.add(s.bIdx);
+          updated[j] = { ...updated[j], noWallEdges: Array.from(noWallB) };
+        }
+      }
+    }
+    onChange(updated);
+  }, [rooms, findSharedEdges, onChange]);
+
+  // Merge two rooms into one polygon (convex hull of all points)
+  const mergeRooms = useCallback((idA: string, idB: string) => {
+    const roomA = rooms.find(r => r.id === idA);
+    const roomB = rooms.find(r => r.id === idB);
+    if (!roomA || !roomB) return;
+
+    // Collect all unique points
+    const allPts = [...roomA.points, ...roomB.points];
+    const hull = convexHull(allPts);
+
+    const merged: RoomConfig = {
+      id: roomA.id,
+      name: `${roomA.name} + ${roomB.name}`,
+      points: hull,
+      floorType: roomA.floorType,
+      noWallEdges: [],
+    };
+    onChange(rooms.filter(r => r.id !== idA && r.id !== idB).concat(merged));
+    setSelectedRoomId(merged.id);
+    setMergeState(null);
+  }, [rooms, onChange]);
+
+  // Simple convex hull (Graham scan)
+  function convexHull(points: [number, number][]): [number, number][] {
+    if (points.length < 3) return points;
+    const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
+      (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lower: [number, number][] = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper: [number, number][] = [];
+    for (const p of pts.reverse()) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    upper.pop(); lower.pop();
+    return lower.concat(upper);
+  }
+
   // Grid
   const gridStep = zoom > 30 ? 1 : zoom > 15 ? 2 : 5;
   const gridStartX = Math.floor(vbX / gridStep) * gridStep;
