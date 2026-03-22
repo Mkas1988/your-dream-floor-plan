@@ -178,6 +178,10 @@ export const FloorPlanEditor = () => {
         onChange={setRooms}
         onBack={() => setStep("home")}
         onFinish={() => setStep("3d")}
+        onSave={savePlan}
+        saving={saving}
+        planName={planName}
+        onPlanNameChange={setPlanName}
       />
     );
   }

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BuildingConfig, RoomConfig } from "./types";
-import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home } from "lucide-react";
+import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home, Save, Loader2 } from "lucide-react";
 import { ChatPanel } from "./ChatPanel";
 
 interface Props {
@@ -10,6 +10,10 @@ interface Props {
   onChange: (rooms: RoomConfig[]) => void;
   onBack: () => void;
   onFinish: () => void;
+  onSave?: () => void;
+  saving?: boolean;
+  planName?: string;
+  onPlanNameChange?: (name: string) => void;
 }
 
 let roomIdCounter = 0;
@@ -76,7 +80,7 @@ type DragState =
   | { type: "outline-edge"; idx: number; startMouse: [number, number]; origPts: [number, number][] }
   | { type: "pan"; startMouse: [number, number]; startCenter: [number, number] };
 
-export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBack, onFinish }: Props) => {
+export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBack, onFinish, onSave, saving, planName, onPlanNameChange }: Props) => {
   const outline = building.outline || [];
   const [phase, setPhase] = useState<Phase>(outline.length >= 3 ? "rooms" : "outline");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -638,6 +642,27 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
             >
               <Settings className="w-4 h-4" />
             </button>
+            {onSave && (
+              <>
+                <div className="w-px bg-border mx-1" />
+                {onPlanNameChange && (
+                  <input
+                    value={planName || ""}
+                    onChange={(e) => onPlanNameChange(e.target.value)}
+                    className="px-2 py-1.5 rounded-md border border-border bg-background text-foreground text-sm w-36 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="Name..."
+                  />
+                )}
+                <button
+                  onClick={onSave}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Speichern
+                </button>
+              </>
+            )}
           </div>
         </div>
 
