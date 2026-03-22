@@ -42,6 +42,7 @@ export type FurnitureCatalogItem = {
 export interface BuildingConfig {
   wallThickness: number;
   wallHeight: number;
+  outline?: [number, number][]; // building outer polygon
 }
 
 export interface RoomConfig {
