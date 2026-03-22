@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BuildingConfig, RoomConfig } from "./types";
-import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home, Save, Loader2 } from "lucide-react";
+import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home, Save, Loader2, Merge, Magnet } from "lucide-react";
 import { ChatPanel } from "./ChatPanel";
 
 interface Props {
@@ -26,6 +26,7 @@ const FLOOR_TYPES = [
 
 const SNAP = 0.01;
 const CLOSE_DIST = 0.4;
+const SNAP_VERTEX_DIST = 0.20; // snap to existing vertices within 20cm
 
 function snap(v: number): number {
   return Math.round(v / SNAP) * SNAP;
@@ -71,6 +72,7 @@ function pointInPolygon(x: number, y: number, pts: [number, number][]): boolean 
 
 type Phase = "outline" | "rooms";
 type Mode = "select" | "draw";
+type MergeState = null | { firstRoomId: string };
 type DragState =
   | null
   | { type: "vertex"; roomId: string; idx: number }
@@ -86,6 +88,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedEdgeIdx, setSelectedEdgeIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("draw");
+  const [mergeState, setMergeState] = useState<MergeState>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [mouseWorld, setMouseWorld] = useState<[number, number] | null>(null);
   const [drag, setDrag] = useState<DragState>(null);
@@ -144,6 +147,105 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     const world = pt.matrixTransform(ctm.inverse());
     return [world.x, world.y];
   }, []);
+
+  // Snap a point to nearby existing vertices (outline + other rooms)
+  const snapToVertices = useCallback((pt: [number, number], excludeRoomId?: string): [number, number] => {
+    let best: [number, number] = pt;
+    let bestDist = SNAP_VERTEX_DIST;
+    for (const v of outline) {
+      const d = Math.hypot(pt[0] - v[0], pt[1] - v[1]);
+      if (d < bestDist) { bestDist = d; best = [...v]; }
+    }
+    for (const room of rooms) {
+      if (room.id === excludeRoomId) continue;
+      for (const v of room.points) {
+        const d = Math.hypot(pt[0] - v[0], pt[1] - v[1]);
+        if (d < bestDist) { bestDist = d; best = [...v]; }
+      }
+    }
+    return best;
+  }, [outline, rooms]);
+
+  // Find shared edges between two rooms (edges with matching vertex pairs)
+  const findSharedEdges = useCallback((roomA: RoomConfig, roomB: RoomConfig): { aIdx: number; bIdx: number }[] => {
+    const shared: { aIdx: number; bIdx: number }[] = [];
+    const EPS = 0.05;
+    for (let ai = 0; ai < roomA.points.length; ai++) {
+      const a1 = roomA.points[ai], a2 = roomA.points[(ai + 1) % roomA.points.length];
+      for (let bi = 0; bi < roomB.points.length; bi++) {
+        const b1 = roomB.points[bi], b2 = roomB.points[(bi + 1) % roomB.points.length];
+        // Check both orientations
+        if (
+          (Math.hypot(a1[0] - b1[0], a1[1] - b1[1]) < EPS && Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) < EPS) ||
+          (Math.hypot(a1[0] - b2[0], a1[1] - b2[1]) < EPS && Math.hypot(a2[0] - b1[0], a2[1] - b1[1]) < EPS)
+        ) {
+          shared.push({ aIdx: ai, bIdx: bi });
+        }
+      }
+    }
+    return shared;
+  }, []);
+
+  // Auto-remove shared walls between all room pairs
+  const autoRemoveSharedWalls = useCallback(() => {
+    let updated = rooms.map(r => ({ ...r }));
+    for (let i = 0; i < updated.length; i++) {
+      for (let j = i + 1; j < updated.length; j++) {
+        const shared = findSharedEdges(updated[i], updated[j]);
+        for (const s of shared) {
+          const noWallA = new Set(updated[i].noWallEdges || []);
+          noWallA.add(s.aIdx);
+          updated[i] = { ...updated[i], noWallEdges: Array.from(noWallA) };
+          const noWallB = new Set(updated[j].noWallEdges || []);
+          noWallB.add(s.bIdx);
+          updated[j] = { ...updated[j], noWallEdges: Array.from(noWallB) };
+        }
+      }
+    }
+    onChange(updated);
+  }, [rooms, findSharedEdges, onChange]);
+
+  // Merge two rooms into one polygon (convex hull of all points)
+  const mergeRooms = useCallback((idA: string, idB: string) => {
+    const roomA = rooms.find(r => r.id === idA);
+    const roomB = rooms.find(r => r.id === idB);
+    if (!roomA || !roomB) return;
+
+    // Collect all unique points
+    const allPts = [...roomA.points, ...roomB.points];
+    const hull = convexHull(allPts);
+
+    const merged: RoomConfig = {
+      id: roomA.id,
+      name: `${roomA.name} + ${roomB.name}`,
+      points: hull,
+      floorType: roomA.floorType,
+      noWallEdges: [],
+    };
+    onChange(rooms.filter(r => r.id !== idA && r.id !== idB).concat(merged));
+    setSelectedRoomId(merged.id);
+    setMergeState(null);
+  }, [rooms, onChange]);
+
+  // Simple convex hull (Graham scan)
+  function convexHull(points: [number, number][]): [number, number][] {
+    if (points.length < 3) return points;
+    const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
+      (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lower: [number, number][] = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper: [number, number][] = [];
+    for (const p of pts.reverse()) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    upper.pop(); lower.pop();
+    return lower.concat(upper);
+  }
 
   // Grid
   const gridStep = zoom > 30 ? 1 : zoom > 15 ? 2 : 5;
@@ -293,10 +395,11 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     }
 
     if (drag.type === "vertex") {
+      let snapped = snapToVertices(world, drag.roomId);
       onChange(rooms.map((r) => {
         if (r.id !== drag.roomId) return r;
         const pts = [...r.points] as [number, number][];
-        pts[drag.idx] = world;
+        pts[drag.idx] = snapped;
         return { ...r, points: pts };
       }));
       return;
@@ -332,10 +435,27 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const handleMouseUp = useCallback(() => { setDrag(null); }, []);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
-    if (mode !== "draw") return;
+    if (mode !== "draw") {
+      // Handle merge mode click
+      if (mergeState && mode === "select") {
+        const world = screenToWorld(e);
+        for (const room of rooms) {
+          if (room.id === mergeState.firstRoomId) continue;
+          if (pointInPolygon(world[0], world[1], room.points)) {
+            mergeRooms(mergeState.firstRoomId, room.id);
+            return;
+          }
+        }
+        setMergeState(null);
+        return;
+      }
+      return;
+    }
     if (drag) return;
 
-    const world = screenToWorld(e);
+    let world = screenToWorld(e);
+    // Snap to existing vertices
+    world = snapToVertices(world);
 
     // Close polygon check
     if (drawingPoints.length >= 3) {
@@ -346,7 +466,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
       }
     }
     setDrawingPoints((prev) => [...prev, world]);
-  }, [mode, drawingPoints, screenToWorld, drag]);
+  }, [mode, drawingPoints, screenToWorld, drag, snapToVertices, mergeState, rooms, mergeRooms]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (mode !== "draw" || drawingPoints.length < 3) return;
@@ -590,12 +710,13 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
 
   // Helper instructions
   const getHelpText = () => {
+    if (mergeState) return "Klicke auf einen zweiten Raum zum Verschmelzen";
     if (phase === "outline") {
       if (mode === "draw") return "Zeichne die Außenwände deines Gebäudes · Klicke um Eckpunkte zu setzen · Doppelklick zum Schließen";
       return "Passe die Gebäudeform an · Punkte ziehen · Rechtsklick: Punkt einfügen/löschen";
     }
-    if (mode === "draw") return "Zeichne Räume innerhalb der Gebäudeform · Doppelklick zum Schließen";
-    return "Raum anklicken zum Auswählen · Rechtsklick: Punkt einfügen/löschen · Mausrad: Zoom";
+    if (mode === "draw") return "Zeichne Räume · Punkte rasten an bestehende Ecken ein · Doppelklick zum Schließen";
+    return "Raum anklicken zum Auswählen · Punkte rasten an Nachbarräume ein · Mausrad: Zoom";
   };
 
   return (
@@ -833,16 +954,29 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               </g>
             )}
 
-            {/* Crosshair */}
-            {mode === "draw" && mouseWorld && (
-              <g opacity={0.25}>
-                <line x1={mouseWorld[0]} y1={vbY} x2={mouseWorld[0]} y2={vbY + vbH} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
-                <line x1={vbX} y1={mouseWorld[1]} x2={vbX + vbW} y2={mouseWorld[1]} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
-                <text x={mouseWorld[0] + sw(8)} y={mouseWorld[1] - sw(8)} fontSize={sw(9)} fill="hsl(var(--primary))" className="select-none">
-                  {mouseWorld[0].toFixed(2)}, {mouseWorld[1].toFixed(2)}
-                </text>
-              </g>
-            )}
+            {/* Crosshair + snap indicator */}
+            {mode === "draw" && mouseWorld && (() => {
+              const snapped = snapToVertices(mouseWorld);
+              const isSnapping = snapped[0] !== mouseWorld[0] || snapped[1] !== mouseWorld[1];
+              return (
+                <g>
+                  <g opacity={0.25}>
+                    <line x1={mouseWorld[0]} y1={vbY} x2={mouseWorld[0]} y2={vbY + vbH} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
+                    <line x1={vbX} y1={mouseWorld[1]} x2={vbX + vbW} y2={mouseWorld[1]} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
+                    <text x={mouseWorld[0] + sw(8)} y={mouseWorld[1] - sw(8)} fontSize={sw(9)} fill="hsl(var(--primary))" className="select-none">
+                      {mouseWorld[0].toFixed(2)}, {mouseWorld[1].toFixed(2)}
+                    </text>
+                  </g>
+                  {isSnapping && (
+                    <g>
+                      <circle cx={snapped[0]} cy={snapped[1]} r={sw(8)} fill="none" stroke="hsl(var(--primary))" strokeWidth={sw(2)} opacity={0.7} />
+                      <circle cx={snapped[0]} cy={snapped[1]} r={sw(3)} fill="hsl(var(--primary))" opacity={0.8} />
+                      <text x={snapped[0] + sw(12)} y={snapped[1] - sw(4)} fontSize={sw(8)} fill="hsl(var(--primary))" fontWeight="600" className="select-none pointer-events-none">SNAP</text>
+                    </g>
+                  )}
+                </g>
+              );
+            })()}
           </svg>
         </div>
 
@@ -987,16 +1121,54 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                   </button>
                 </div>
               )}
+
+              {/* Merge & shared wall tools */}
+              {rooms.length >= 2 && (
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={autoRemoveSharedWalls}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border border-border text-foreground font-medium text-[10px] hover:bg-muted transition-colors"
+                    title="Gemeinsame Wände automatisch entfernen"
+                  >
+                    <Magnet className="w-3 h-3" />Gem. Wände entfernen
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (mergeState) { setMergeState(null); }
+                      else if (selectedRoomId) { setMergeState({ firstRoomId: selectedRoomId }); }
+                    }}
+                    disabled={!selectedRoomId}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-medium text-[10px] transition-colors ${mergeState ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:bg-muted"} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    title="Zwei Räume zu einem verschmelzen"
+                  >
+                    <Merge className="w-3 h-3" />Verschmelzen
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {mergeState && (
+                <div className="p-3 rounded-lg border border-primary bg-primary/5 mb-2">
+                  <p className="text-xs font-medium text-primary">Klicke auf den zweiten Raum zum Verschmelzen</p>
+                  <button onClick={() => setMergeState(null)} className="text-xs text-muted-foreground hover:text-foreground mt-1">Abbrechen</button>
+                </div>
+              )}
               {rooms.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume oder gib Maße ein.</p>
               )}
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
+                const isMergeTarget = mergeState && room.id !== mergeState.firstRoomId;
+                const isMergeSource = mergeState && room.id === mergeState.firstRoomId;
                 return (
-                  <div key={room.id} onClick={() => { setSelectedRoomId(room.id); setSelectedEdgeIdx(null); }}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  <div key={room.id} onClick={() => {
+                    if (mergeState && room.id !== mergeState.firstRoomId) {
+                      mergeRooms(mergeState.firstRoomId, room.id);
+                      return;
+                    }
+                    setSelectedRoomId(room.id); setSelectedEdgeIdx(null);
+                  }}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${isMergeSource ? "border-primary bg-primary/10 ring-2 ring-primary/30" : isMergeTarget ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{room.name}</span>
                       <button onClick={(e) => { e.stopPropagation(); deleteRoom(room.id); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
@@ -1004,6 +1176,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                       </button>
                     </div>
                     <span className="text-xs text-muted-foreground">{area.toFixed(1)} m² · {room.points.length} Ecken</span>
+                    {isMergeTarget && <span className="text-[10px] text-primary font-medium block mt-1">→ Klicken zum Verschmelzen</span>}
                   </div>
                 );
               })}
