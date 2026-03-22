@@ -434,10 +434,27 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const handleMouseUp = useCallback(() => { setDrag(null); }, []);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
-    if (mode !== "draw") return;
+    if (mode !== "draw") {
+      // Handle merge mode click
+      if (mergeState && mode === "select") {
+        const world = screenToWorld(e);
+        for (const room of rooms) {
+          if (room.id === mergeState.firstRoomId) continue;
+          if (pointInPolygon(world[0], world[1], room.points)) {
+            mergeRooms(mergeState.firstRoomId, room.id);
+            return;
+          }
+        }
+        setMergeState(null);
+        return;
+      }
+      return;
+    }
     if (drag) return;
 
-    const world = screenToWorld(e);
+    let world = screenToWorld(e);
+    // Snap to existing vertices
+    world = snapToVertices(world);
 
     // Close polygon check
     if (drawingPoints.length >= 3) {
@@ -448,7 +465,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
       }
     }
     setDrawingPoints((prev) => [...prev, world]);
-  }, [mode, drawingPoints, screenToWorld, drag]);
+  }, [mode, drawingPoints, screenToWorld, drag, snapToVertices, mergeState, rooms, mergeRooms]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (mode !== "draw" || drawingPoints.length < 3) return;
