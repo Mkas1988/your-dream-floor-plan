@@ -19,26 +19,18 @@ function polygonArea(points: [number, number][]): number {
   return Math.abs(area) / 2;
 }
 
-// Normalize an edge key so that the same edge in reverse maps to the same key
 function edgeKey(a: [number, number], b: [number, number]): string {
   const ax = a[0].toFixed(3), az = a[1].toFixed(3);
   const bx = b[0].toFixed(3), bz = b[1].toFixed(3);
-  // Canonical order: smaller point first
   if (ax < bx || (ax === bx && az < bz)) return `${ax},${az}|${bx},${bz}`;
   return `${bx},${bz}|${ax},${az}`;
 }
 
-/**
- * Walls are derived purely from room edges:
- * - Edges shared by exactly 2 rooms → inner walls
- * - Edges belonging to only 1 room → outer walls (building boundary)
- */
 export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): WallSegment[] {
   const W = building.wallThickness;
   const H = building.wallHeight;
 
-  // Count how many rooms share each edge, track if any room marks it as noWall
-  const edgeCounts = new Map<string, { start: [number, number]; end: [number, number]; count: number; rooms: RoomConfig[]; noWall: boolean }>();
+  const edgeCounts = new Map<string, { start: [number, number]; end: [number, number]; count: number; rooms: RoomConfig[]; noWall: boolean; customThickness?: number }>();
 
   for (const room of rooms) {
     const pts = room.points;
@@ -48,32 +40,33 @@ export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): Wa
       const a = pts[i];
       const b = pts[(i + 1) % pts.length];
       const key = edgeKey(a, b);
+      const edgeT = room.edgeThickness?.[i];
       const existing = edgeCounts.get(key);
       if (existing) {
         existing.count++;
         existing.rooms.push(room);
         if (noWallSet.has(i)) existing.noWall = true;
+        if (edgeT !== undefined) existing.customThickness = edgeT;
       } else {
-        edgeCounts.set(key, { start: [a[0], a[1]], end: [b[0], b[1]], count: 1, rooms: [room], noWall: noWallSet.has(i) });
+        edgeCounts.set(key, { start: [a[0], a[1]], end: [b[0], b[1]], count: 1, rooms: [room], noWall: noWallSet.has(i), customThickness: edgeT });
       }
     }
   }
 
   const walls: WallSegment[] = [];
   for (const [, edge] of edgeCounts) {
-    // Skip edges marked as noWall
     if (edge.noWall) continue;
     const isOuter = edge.count === 1;
     const room = edge.rooms[0];
+    const defaultThickness = isOuter ? W : W * 0.6;
 
     const wall: WallSegment = {
       start: edge.start,
       end: edge.end,
       height: H,
-      thickness: isOuter ? W : W * 0.6, // inner walls thinner
+      thickness: edge.customThickness ?? defaultThickness,
     };
 
-    // Apply window/door from touching rooms
     if (isOuter) {
       if (room.hasWindow) wall.hasWindow = true;
       if (room.hasDoor) wall.hasDoor = true;
@@ -117,7 +110,6 @@ export function generateRoomLabels(_building: BuildingConfig, rooms: RoomConfig[
   });
 }
 
-/** Compute bounding box of all rooms */
 export function computeBuildingBounds(rooms: RoomConfig[]): { minX: number; minZ: number; maxX: number; maxZ: number; width: number; depth: number } {
   if (rooms.length === 0) return { minX: -5, minZ: -4, maxX: 5, maxZ: 4, width: 10, depth: 8 };
   const allPts = rooms.flatMap((r) => r.points);
