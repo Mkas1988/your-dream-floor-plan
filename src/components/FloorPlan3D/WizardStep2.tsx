@@ -710,12 +710,13 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
 
   // Helper instructions
   const getHelpText = () => {
+    if (mergeState) return "Klicke auf einen zweiten Raum zum Verschmelzen";
     if (phase === "outline") {
       if (mode === "draw") return "Zeichne die Außenwände deines Gebäudes · Klicke um Eckpunkte zu setzen · Doppelklick zum Schließen";
       return "Passe die Gebäudeform an · Punkte ziehen · Rechtsklick: Punkt einfügen/löschen";
     }
-    if (mode === "draw") return "Zeichne Räume innerhalb der Gebäudeform · Doppelklick zum Schließen";
-    return "Raum anklicken zum Auswählen · Rechtsklick: Punkt einfügen/löschen · Mausrad: Zoom";
+    if (mode === "draw") return "Zeichne Räume · Punkte rasten an bestehende Ecken ein · Doppelklick zum Schließen";
+    return "Raum anklicken zum Auswählen · Punkte rasten an Nachbarräume ein · Mausrad: Zoom";
   };
 
   return (
