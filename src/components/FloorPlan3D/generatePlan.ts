@@ -37,12 +37,13 @@ export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): Wa
   const W = building.wallThickness;
   const H = building.wallHeight;
 
-  // Count how many rooms share each edge
-  const edgeCounts = new Map<string, { start: [number, number]; end: [number, number]; count: number; rooms: RoomConfig[] }>();
+  // Count how many rooms share each edge, track if any room marks it as noWall
+  const edgeCounts = new Map<string, { start: [number, number]; end: [number, number]; count: number; rooms: RoomConfig[]; noWall: boolean }>();
 
   for (const room of rooms) {
     const pts = room.points;
     if (pts.length < 3) continue;
+    const noWallSet = new Set(room.noWallEdges || []);
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i];
       const b = pts[(i + 1) % pts.length];
@@ -51,14 +52,17 @@ export function generateWalls(building: BuildingConfig, rooms: RoomConfig[]): Wa
       if (existing) {
         existing.count++;
         existing.rooms.push(room);
+        if (noWallSet.has(i)) existing.noWall = true;
       } else {
-        edgeCounts.set(key, { start: [a[0], a[1]], end: [b[0], b[1]], count: 1, rooms: [room] });
+        edgeCounts.set(key, { start: [a[0], a[1]], end: [b[0], b[1]], count: 1, rooms: [room], noWall: noWallSet.has(i) });
       }
     }
   }
 
   const walls: WallSegment[] = [];
   for (const [, edge] of edgeCounts) {
+    // Skip edges marked as noWall
+    if (edge.noWall) continue;
     const isOuter = edge.count === 1;
     const room = edge.rooms[0];
 

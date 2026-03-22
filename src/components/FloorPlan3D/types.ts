@@ -52,6 +52,7 @@ export interface RoomConfig {
   floorType: "parkett" | "fliesen" | "laminat";
   hasWindow?: boolean;
   hasDoor?: boolean;
+  noWallEdges?: number[]; // indices of edges that should NOT generate a wall
 }
 
 export const FLOOR_COLORS: Record<string, string> = {
