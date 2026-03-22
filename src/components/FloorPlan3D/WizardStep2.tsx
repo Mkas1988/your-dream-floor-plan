@@ -768,9 +768,26 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                   <text x={c[0]} y={c[1] - sw(4)} textAnchor="middle" fontSize={sw(11)} fontWeight="500" fill="hsl(220, 10%, 20%)" className="pointer-events-none select-none">{room.name}</text>
                   <text x={c[0]} y={c[1] + sw(10)} textAnchor="middle" fontSize={sw(9)} fill="hsl(220, 10%, 50%)" className="pointer-events-none select-none">{area.toFixed(1)} m²</text>
 
-                  {isSelected && mode === "select" && room.points.map((pt, idx) => {
+                  {/* Clickable edge hit areas for ALL rooms */}
+                  {mode === "select" && room.points.map((pt, idx) => {
                     const next = room.points[(idx + 1) % room.points.length];
-                    return <line key={`re-${idx}`} x1={pt[0]} y1={pt[1]} x2={next[0]} y2={next[1]} stroke="transparent" strokeWidth={sw(8)} className="cursor-ew-resize" />;
+                    const noWallSet = new Set(room.noWallEdges || []);
+                    const isNoWall = noWallSet.has(idx);
+                    const isEdgeSelected = isSelected && selectedEdgeIdx === idx;
+                    return (
+                      <line key={`re-${idx}`} x1={pt[0]} y1={pt[1]} x2={next[0]} y2={next[1]}
+                        stroke={isEdgeSelected ? "hsl(var(--primary))" : isNoWall ? "hsl(var(--destructive))" : "transparent"}
+                        strokeWidth={sw(isEdgeSelected ? 4 : 8)}
+                        strokeDasharray={isNoWall && !isEdgeSelected ? `${sw(4)} ${sw(4)}` : undefined}
+                        opacity={isEdgeSelected ? 0.8 : isNoWall ? 0.5 : 1}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRoomId(room.id);
+                          setSelectedEdgeIdx(idx);
+                        }}
+                      />
+                    );
                   })}
                   {isSelected && mode === "select" && room.points.map((pt, idx) => (
                     <circle key={`rv-${idx}`} cx={pt[0]} cy={pt[1]} r={sw(5)} fill="hsl(var(--primary))" stroke="white" strokeWidth={sw(1.5)} className="cursor-grab" />
@@ -780,7 +797,8 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                     const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
                     const mx = (pt[0] + next[0]) / 2;
                     const my = (pt[1] + next[1]) / 2;
-                    return <text key={`rlen-${idx}`} x={mx} y={my - sw(5)} textAnchor="middle" fontSize={sw(8)} fill="hsl(var(--primary))" className="pointer-events-none select-none font-medium">{len.toFixed(2)}m</text>;
+                    const isEdgeSelected = selectedEdgeIdx === idx;
+                    return <text key={`rlen-${idx}`} x={mx} y={my - sw(5)} textAnchor="middle" fontSize={sw(isEdgeSelected ? 10 : 8)} fontWeight={isEdgeSelected ? "700" : "500"} fill="hsl(var(--primary))" className="pointer-events-none select-none">{len.toFixed(2)}m</text>;
                   })}
                 </g>
               );
