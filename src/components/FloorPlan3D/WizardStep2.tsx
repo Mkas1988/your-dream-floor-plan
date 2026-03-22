@@ -1002,21 +1002,35 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                     {selectedRoom.points.map((pt, idx) => {
                       const next = selectedRoom.points[(idx + 1) % selectedRoom.points.length];
                       const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
+                      const noWallSet = new Set(selectedRoom.noWallEdges || []);
+                      const isNoWall = noWallSet.has(idx);
                       return (
-                        <div key={idx} className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground w-14 flex-shrink-0">Wand {idx + 1}</span>
+                        <div key={idx} className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground w-12 flex-shrink-0">Wand {idx + 1}</span>
                           <input
                             type="number"
-                            step="0.05"
-                            min="0.25"
+                            step="0.01"
+                            min="0.01"
                             value={parseFloat(len.toFixed(2))}
                             onChange={(e) => {
                               const v = parseFloat(e.target.value);
                               if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
                             }}
-                            className="flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className={`flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 ${isNoWall ? "opacity-50" : ""}`}
                           />
                           <span className="text-[10px] text-muted-foreground">m</span>
+                          <button
+                            onClick={() => {
+                              const edges = new Set(selectedRoom.noWallEdges || []);
+                              if (edges.has(idx)) edges.delete(idx);
+                              else edges.add(idx);
+                              updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
+                            }}
+                            className={`p-1 rounded text-[10px] font-medium transition-colors flex-shrink-0 ${isNoWall ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                            title={isNoWall ? "Wand wiederherstellen" : "Wand entfernen"}
+                          >
+                            {isNoWall ? "✕" : "🧱"}
+                          </button>
                         </div>
                       );
                     })}
