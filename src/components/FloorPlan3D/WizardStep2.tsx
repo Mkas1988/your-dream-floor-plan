@@ -1107,16 +1107,54 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                   </button>
                 </div>
               )}
+
+              {/* Merge & shared wall tools */}
+              {rooms.length >= 2 && (
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={autoRemoveSharedWalls}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg border border-border text-foreground font-medium text-[10px] hover:bg-muted transition-colors"
+                    title="Gemeinsame Wände automatisch entfernen"
+                  >
+                    <Magnet className="w-3 h-3" />Gem. Wände entfernen
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (mergeState) { setMergeState(null); }
+                      else if (selectedRoomId) { setMergeState({ firstRoomId: selectedRoomId }); }
+                    }}
+                    disabled={!selectedRoomId}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-medium text-[10px] transition-colors ${mergeState ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:bg-muted"} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    title="Zwei Räume zu einem verschmelzen"
+                  >
+                    <Merge className="w-3 h-3" />Verschmelzen
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {mergeState && (
+                <div className="p-3 rounded-lg border border-primary bg-primary/5 mb-2">
+                  <p className="text-xs font-medium text-primary">Klicke auf den zweiten Raum zum Verschmelzen</p>
+                  <button onClick={() => setMergeState(null)} className="text-xs text-muted-foreground hover:text-foreground mt-1">Abbrechen</button>
+                </div>
+              )}
               {rooms.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume oder gib Maße ein.</p>
               )}
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
+                const isMergeTarget = mergeState && room.id !== mergeState.firstRoomId;
+                const isMergeSource = mergeState && room.id === mergeState.firstRoomId;
                 return (
-                  <div key={room.id} onClick={() => { setSelectedRoomId(room.id); setSelectedEdgeIdx(null); }}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  <div key={room.id} onClick={() => {
+                    if (mergeState && room.id !== mergeState.firstRoomId) {
+                      mergeRooms(mergeState.firstRoomId, room.id);
+                      return;
+                    }
+                    setSelectedRoomId(room.id); setSelectedEdgeIdx(null);
+                  }}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${isMergeSource ? "border-primary bg-primary/10 ring-2 ring-primary/30" : isMergeTarget ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{room.name}</span>
                       <button onClick={(e) => { e.stopPropagation(); deleteRoom(room.id); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
@@ -1124,6 +1162,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                       </button>
                     </div>
                     <span className="text-xs text-muted-foreground">{area.toFixed(1)} m² · {room.points.length} Ecken</span>
+                    {isMergeTarget && <span className="text-[10px] text-primary font-medium block mt-1">→ Klicken zum Verschmelzen</span>}
                   </div>
                 );
               })}
