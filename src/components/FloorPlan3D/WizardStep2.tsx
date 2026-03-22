@@ -254,6 +254,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
         }
       }
       setSelectedRoomId(null);
+      setSelectedEdgeIdx(null);
     }
   }, [mode, phase, rooms, selectedRoomId, outline, screenToWorld, screenToWorldRaw, viewCenter, px]);
 
