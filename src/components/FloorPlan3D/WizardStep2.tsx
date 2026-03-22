@@ -785,15 +785,47 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
           </div>
         ) : (
           <>
-            <div className="p-4 border-b border-border">
-              <button onClick={() => setMode("draw")}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors">
-                <Pencil className="w-4 h-4" />Raum zeichnen
-              </button>
+            <div className="p-4 border-b border-border space-y-2">
+              <div className="flex gap-2">
+                <button onClick={() => setMode("draw")}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                  <Pencil className="w-3.5 h-3.5" />Zeichnen
+                </button>
+                <button onClick={() => setShowAddRoom(!showAddRoom)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-xs transition-colors ${showAddRoom ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:bg-muted"}`}>
+                  <Plus className="w-3.5 h-3.5" />Maße eingeben
+                </button>
+              </div>
+              {showAddRoom && (
+                <div className="p-3 rounded-lg border border-border bg-muted/50 space-y-2">
+                  <div>
+                    <label className="text-xs font-medium text-foreground mb-1 block">Raumname</label>
+                    <input value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="z.B. Küche" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-foreground mb-1 block">Breite (m)</label>
+                      <input type="number" step="0.25" min="0.5" value={newRoomWidth} onChange={(e) => setNewRoomWidth(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-foreground mb-1 block">Tiefe (m)</label>
+                      <input type="number" step="0.25" min="0.5" value={newRoomDepth} onChange={(e) => setNewRoomDepth(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                  </div>
+                  <button onClick={addRoomByDimensions}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                    <Plus className="w-3.5 h-3.5" />Raum hinzufügen
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {rooms.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume innerhalb der Gebäudeform.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume oder gib Maße ein.</p>
               )}
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
