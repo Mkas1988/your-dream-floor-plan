@@ -26,6 +26,7 @@ const FLOOR_TYPES = [
 
 const SNAP = 0.01;
 const CLOSE_DIST = 0.4;
+const SNAP_VERTEX_DIST = 0.20; // snap to existing vertices within 20cm
 
 function snap(v: number): number {
   return Math.round(v / SNAP) * SNAP;
