@@ -954,16 +954,29 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               </g>
             )}
 
-            {/* Crosshair */}
-            {mode === "draw" && mouseWorld && (
-              <g opacity={0.25}>
-                <line x1={mouseWorld[0]} y1={vbY} x2={mouseWorld[0]} y2={vbY + vbH} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
-                <line x1={vbX} y1={mouseWorld[1]} x2={vbX + vbW} y2={mouseWorld[1]} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
-                <text x={mouseWorld[0] + sw(8)} y={mouseWorld[1] - sw(8)} fontSize={sw(9)} fill="hsl(var(--primary))" className="select-none">
-                  {mouseWorld[0].toFixed(2)}, {mouseWorld[1].toFixed(2)}
-                </text>
-              </g>
-            )}
+            {/* Crosshair + snap indicator */}
+            {mode === "draw" && mouseWorld && (() => {
+              const snapped = snapToVertices(mouseWorld);
+              const isSnapping = snapped[0] !== mouseWorld[0] || snapped[1] !== mouseWorld[1];
+              return (
+                <g>
+                  <g opacity={0.25}>
+                    <line x1={mouseWorld[0]} y1={vbY} x2={mouseWorld[0]} y2={vbY + vbH} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
+                    <line x1={vbX} y1={mouseWorld[1]} x2={vbX + vbW} y2={mouseWorld[1]} stroke="hsl(var(--primary))" strokeWidth={sw(0.5)} />
+                    <text x={mouseWorld[0] + sw(8)} y={mouseWorld[1] - sw(8)} fontSize={sw(9)} fill="hsl(var(--primary))" className="select-none">
+                      {mouseWorld[0].toFixed(2)}, {mouseWorld[1].toFixed(2)}
+                    </text>
+                  </g>
+                  {isSnapping && (
+                    <g>
+                      <circle cx={snapped[0]} cy={snapped[1]} r={sw(8)} fill="none" stroke="hsl(var(--primary))" strokeWidth={sw(2)} opacity={0.7} />
+                      <circle cx={snapped[0]} cy={snapped[1]} r={sw(3)} fill="hsl(var(--primary))" opacity={0.8} />
+                      <text x={snapped[0] + sw(12)} y={snapped[1] - sw(4)} fontSize={sw(8)} fill="hsl(var(--primary))" fontWeight="600" className="select-none pointer-events-none">SNAP</text>
+                    </g>
+                  )}
+                </g>
+              );
+            })()}
           </svg>
         </div>
 
