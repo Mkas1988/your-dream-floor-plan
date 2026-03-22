@@ -443,6 +443,44 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     if (selectedRoomId === id) setSelectedRoomId(null);
   };
 
+  const addRoomByDimensions = () => {
+    const w = parseFloat(newRoomWidth);
+    const d = parseFloat(newRoomDepth);
+    if (isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+
+    // Place in center of outline or at origin
+    let cx = 0, cy = 0;
+    if (outline.length >= 3) {
+      const c = centroid(outline);
+      cx = c[0]; cy = c[1];
+    }
+
+    // Offset if rooms already exist to avoid exact overlap
+    const offsetIdx = rooms.length;
+    cx = snap(cx + offsetIdx * 0.5);
+    cy = snap(cy + offsetIdx * 0.5);
+
+    const hw = w / 2, hd = d / 2;
+    const points: [number, number][] = [
+      [snap(cx - hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy + hd)],
+      [snap(cx - hw), snap(cy + hd)],
+    ];
+
+    const newRoom: RoomConfig = {
+      id: `room-${++roomIdCounter}`,
+      name: newRoomName || "Neuer Raum",
+      points,
+      floorType: "parkett",
+    };
+    onChange([...rooms, newRoom]);
+    setSelectedRoomId(newRoom.id);
+    setShowAddRoom(false);
+    setNewRoomName("Neuer Raum");
+    setMode("select");
+  };
+
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const pointsToSvg = (pts: [number, number][]) => pts.map((p) => `${p[0]},${p[1]}`).join(" ");
   const sw = (pixels: number) => pixels * px;
