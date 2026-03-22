@@ -72,6 +72,7 @@ function pointInPolygon(x: number, y: number, pts: [number, number][]): boolean 
 
 type Phase = "outline" | "rooms";
 type Mode = "select" | "draw";
+type MergeState = null | { firstRoomId: string };
 type DragState =
   | null
   | { type: "vertex"; roomId: string; idx: number }
