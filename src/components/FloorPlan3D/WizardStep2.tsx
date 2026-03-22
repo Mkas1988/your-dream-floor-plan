@@ -84,6 +84,12 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const [mouseWorld, setMouseWorld] = useState<[number, number] | null>(null);
   const [drag, setDrag] = useState<DragState>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddRoom, setShowAddRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("Neuer Raum");
+  const [newRoomWidth, setNewRoomWidth] = useState("4");
+  const [newRoomDepth, setNewRoomDepth] = useState("3");
+  const [outlineWidth, setOutlineWidth] = useState("10");
+  const [outlineDepth, setOutlineDepth] = useState("8");
 
   const [viewCenter, setViewCenter] = useState<[number, number]>([0, 0]);
   const [zoom, setZoom] = useState(50);
@@ -439,6 +445,44 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     if (selectedRoomId === id) setSelectedRoomId(null);
   };
 
+  const addRoomByDimensions = () => {
+    const w = parseFloat(newRoomWidth);
+    const d = parseFloat(newRoomDepth);
+    if (isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+
+    // Place in center of outline or at origin
+    let cx = 0, cy = 0;
+    if (outline.length >= 3) {
+      const c = centroid(outline);
+      cx = c[0]; cy = c[1];
+    }
+
+    // Offset if rooms already exist to avoid exact overlap
+    const offsetIdx = rooms.length;
+    cx = snap(cx + offsetIdx * 0.5);
+    cy = snap(cy + offsetIdx * 0.5);
+
+    const hw = w / 2, hd = d / 2;
+    const points: [number, number][] = [
+      [snap(cx - hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy + hd)],
+      [snap(cx - hw), snap(cy + hd)],
+    ];
+
+    const newRoom: RoomConfig = {
+      id: `room-${++roomIdCounter}`,
+      name: newRoomName || "Neuer Raum",
+      points,
+      floorType: "parkett",
+    };
+    onChange([...rooms, newRoom]);
+    setSelectedRoomId(newRoom.id);
+    setShowAddRoom(false);
+    setNewRoomName("Neuer Raum");
+    setMode("select");
+  };
+
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const pointsToSvg = (pts: [number, number][]) => pts.map((p) => `${p[0]},${p[1]}`).join(" ");
   const sw = (pixels: number) => pixels * px;
@@ -715,9 +759,34 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                 </div>
               </div>
               {outline.length < 3 ? (
-                <p className="text-xs text-muted-foreground">
-                  Klicke auf das Raster, um die Eckpunkte deines Gebäudes zu setzen. Schließe die Form mit Doppelklick oder klicke den ersten Punkt an.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Zeichne die Außenform auf dem Raster oder gib die Maße ein:
+                  </p>
+                  <div className="p-3 rounded-lg border border-border bg-muted/50 space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-xs font-medium text-foreground mb-1 block">Breite (m)</label>
+                        <input type="number" step="0.25" min="1" value={outlineWidth} onChange={(e) => setOutlineWidth(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-medium text-foreground mb-1 block">Tiefe (m)</label>
+                        <input type="number" step="0.25" min="1" value={outlineDepth} onChange={(e) => setOutlineDepth(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      const w = parseFloat(outlineWidth), d = parseFloat(outlineDepth);
+                      if (isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+                      const hw = w / 2, hd = d / 2;
+                      setOutline([[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]);
+                    }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                      <Home className="w-3.5 h-3.5" />Rechteck erstellen
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
@@ -743,15 +812,47 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
           </div>
         ) : (
           <>
-            <div className="p-4 border-b border-border">
-              <button onClick={() => setMode("draw")}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors">
-                <Pencil className="w-4 h-4" />Raum zeichnen
-              </button>
+            <div className="p-4 border-b border-border space-y-2">
+              <div className="flex gap-2">
+                <button onClick={() => setMode("draw")}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                  <Pencil className="w-3.5 h-3.5" />Zeichnen
+                </button>
+                <button onClick={() => setShowAddRoom(!showAddRoom)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-xs transition-colors ${showAddRoom ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:bg-muted"}`}>
+                  <Plus className="w-3.5 h-3.5" />Maße eingeben
+                </button>
+              </div>
+              {showAddRoom && (
+                <div className="p-3 rounded-lg border border-border bg-muted/50 space-y-2">
+                  <div>
+                    <label className="text-xs font-medium text-foreground mb-1 block">Raumname</label>
+                    <input value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="z.B. Küche" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-foreground mb-1 block">Breite (m)</label>
+                      <input type="number" step="0.25" min="0.5" value={newRoomWidth} onChange={(e) => setNewRoomWidth(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-foreground mb-1 block">Tiefe (m)</label>
+                      <input type="number" step="0.25" min="0.5" value={newRoomDepth} onChange={(e) => setNewRoomDepth(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                  </div>
+                  <button onClick={addRoomByDimensions}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                    <Plus className="w-3.5 h-3.5" />Raum hinzufügen
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {rooms.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume innerhalb der Gebäudeform.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Zeichne Räume oder gib Maße ein.</p>
               )}
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
