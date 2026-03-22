@@ -80,7 +80,7 @@ type DragState =
   | { type: "outline-edge"; idx: number; startMouse: [number, number]; origPts: [number, number][] }
   | { type: "pan"; startMouse: [number, number]; startCenter: [number, number] };
 
-export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBack, onFinish }: Props) => {
+export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBack, onFinish, onSave, saving, planName, onPlanNameChange }: Props) => {
   const outline = building.outline || [];
   const [phase, setPhase] = useState<Phase>(outline.length >= 3 ? "rooms" : "outline");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
