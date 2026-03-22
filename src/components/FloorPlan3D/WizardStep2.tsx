@@ -84,6 +84,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const outline = building.outline || [];
   const [phase, setPhase] = useState<Phase>(outline.length >= 3 ? "rooms" : "outline");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedEdgeIdx, setSelectedEdgeIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("draw");
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [mouseWorld, setMouseWorld] = useState<[number, number] | null>(null);
@@ -247,11 +248,13 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
         if (pointInPolygon(world[0], world[1], room.points)) {
           e.stopPropagation();
           setSelectedRoomId(room.id);
+          setSelectedEdgeIdx(null);
           setDrag({ type: "room", roomId: room.id, startMouse: world, origPts: room.points.map((p) => [...p] as [number, number]) });
           return;
         }
       }
       setSelectedRoomId(null);
+      setSelectedEdgeIdx(null);
     }
   }, [mode, phase, rooms, selectedRoomId, outline, screenToWorld, screenToWorldRaw, viewCenter, px]);
 
@@ -767,9 +770,26 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                   <text x={c[0]} y={c[1] - sw(4)} textAnchor="middle" fontSize={sw(11)} fontWeight="500" fill="hsl(220, 10%, 20%)" className="pointer-events-none select-none">{room.name}</text>
                   <text x={c[0]} y={c[1] + sw(10)} textAnchor="middle" fontSize={sw(9)} fill="hsl(220, 10%, 50%)" className="pointer-events-none select-none">{area.toFixed(1)} m²</text>
 
-                  {isSelected && mode === "select" && room.points.map((pt, idx) => {
+                  {/* Clickable edge hit areas for ALL rooms */}
+                  {mode === "select" && room.points.map((pt, idx) => {
                     const next = room.points[(idx + 1) % room.points.length];
-                    return <line key={`re-${idx}`} x1={pt[0]} y1={pt[1]} x2={next[0]} y2={next[1]} stroke="transparent" strokeWidth={sw(8)} className="cursor-ew-resize" />;
+                    const noWallSet = new Set(room.noWallEdges || []);
+                    const isNoWall = noWallSet.has(idx);
+                    const isEdgeSelected = isSelected && selectedEdgeIdx === idx;
+                    return (
+                      <line key={`re-${idx}`} x1={pt[0]} y1={pt[1]} x2={next[0]} y2={next[1]}
+                        stroke={isEdgeSelected ? "hsl(var(--primary))" : isNoWall ? "hsl(var(--destructive))" : "transparent"}
+                        strokeWidth={sw(isEdgeSelected ? 4 : 8)}
+                        strokeDasharray={isNoWall && !isEdgeSelected ? `${sw(4)} ${sw(4)}` : undefined}
+                        opacity={isEdgeSelected ? 0.8 : isNoWall ? 0.5 : 1}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRoomId(room.id);
+                          setSelectedEdgeIdx(idx);
+                        }}
+                      />
+                    );
                   })}
                   {isSelected && mode === "select" && room.points.map((pt, idx) => (
                     <circle key={`rv-${idx}`} cx={pt[0]} cy={pt[1]} r={sw(5)} fill="hsl(var(--primary))" stroke="white" strokeWidth={sw(1.5)} className="cursor-grab" />
@@ -779,7 +799,8 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                     const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
                     const mx = (pt[0] + next[0]) / 2;
                     const my = (pt[1] + next[1]) / 2;
-                    return <text key={`rlen-${idx}`} x={mx} y={my - sw(5)} textAnchor="middle" fontSize={sw(8)} fill="hsl(var(--primary))" className="pointer-events-none select-none font-medium">{len.toFixed(2)}m</text>;
+                    const isEdgeSelected = selectedEdgeIdx === idx;
+                    return <text key={`rlen-${idx}`} x={mx} y={my - sw(5)} textAnchor="middle" fontSize={sw(isEdgeSelected ? 10 : 8)} fontWeight={isEdgeSelected ? "700" : "500"} fill="hsl(var(--primary))" className="pointer-events-none select-none">{len.toFixed(2)}m</text>;
                   })}
                 </g>
               );
@@ -974,7 +995,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               {rooms.map((room) => {
                 const area = room.points.length >= 3 ? polygonArea(room.points) : 0;
                 return (
-                  <div key={room.id} onClick={() => setSelectedRoomId(room.id)}
+                  <div key={room.id} onClick={() => { setSelectedRoomId(room.id); setSelectedEdgeIdx(null); }}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedRoomId === room.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{room.name}</span>
@@ -997,40 +1018,96 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
 
                 {/* Wall edge dimensions */}
                 <div>
-                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wandlängen</label>
-                  <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wände</label>
+                  <div className="space-y-1">
                     {selectedRoom.points.map((pt, idx) => {
                       const next = selectedRoom.points[(idx + 1) % selectedRoom.points.length];
                       const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
                       const noWallSet = new Set(selectedRoom.noWallEdges || []);
                       const isNoWall = noWallSet.has(idx);
+                      const isEdgeSel = selectedEdgeIdx === idx;
+                      const thickness = selectedRoom.edgeThickness?.[idx] ?? building.wallThickness;
                       return (
-                        <div key={idx} className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground w-12 flex-shrink-0">Wand {idx + 1}</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            value={parseFloat(len.toFixed(2))}
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
-                              if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
-                            }}
-                            className={`flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 ${isNoWall ? "opacity-50" : ""}`}
-                          />
-                          <span className="text-[10px] text-muted-foreground">m</span>
-                          <button
-                            onClick={() => {
-                              const edges = new Set(selectedRoom.noWallEdges || []);
-                              if (edges.has(idx)) edges.delete(idx);
-                              else edges.add(idx);
-                              updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
-                            }}
-                            className={`p-1 rounded text-[10px] font-medium transition-colors flex-shrink-0 ${isNoWall ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                            title={isNoWall ? "Wand wiederherstellen" : "Wand entfernen"}
+                        <div key={idx}>
+                          <div
+                            className={`flex items-center gap-1.5 p-1.5 rounded-md cursor-pointer transition-colors ${isEdgeSel ? "bg-primary/10 border border-primary/30" : "hover:bg-muted"}`}
+                            onClick={() => setSelectedEdgeIdx(isEdgeSel ? null : idx)}
                           >
-                            {isNoWall ? "✕" : "🧱"}
-                          </button>
+                            <span className={`text-[10px] w-12 flex-shrink-0 font-medium ${isNoWall ? "text-destructive line-through" : "text-muted-foreground"}`}>
+                              Wand {idx + 1}
+                            </span>
+                            <span className="text-[10px] text-foreground flex-1">{len.toFixed(2)}m</span>
+                            <span className="text-[10px] text-muted-foreground">{(thickness * 100).toFixed(0)}cm</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const edges = new Set(selectedRoom.noWallEdges || []);
+                                if (edges.has(idx)) edges.delete(idx);
+                                else edges.add(idx);
+                                updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
+                              }}
+                              className={`p-0.5 rounded text-[10px] font-medium transition-colors flex-shrink-0 ${isNoWall ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                              title={isNoWall ? "Wand wiederherstellen" : "Wand entfernen"}
+                            >
+                              {isNoWall ? "✕" : "🧱"}
+                            </button>
+                          </div>
+                          {/* Expanded wall details */}
+                          {isEdgeSel && (
+                            <div className="ml-2 mt-1 mb-2 p-2 rounded-md border border-border bg-background space-y-2">
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Länge (m)</label>
+                                  <input
+                                    type="number" step="0.01" min="0.01"
+                                    value={parseFloat(len.toFixed(2))}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value);
+                                      if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
+                                    }}
+                                    className="w-full px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Dicke (m)</label>
+                                  <input
+                                    type="number" step="0.01" min="0.05" max="1"
+                                    value={thickness}
+                                    onChange={(e) => {
+                                      const v = parseFloat(e.target.value);
+                                      if (!isNaN(v) && v > 0) {
+                                        const et = { ...(selectedRoom.edgeThickness || {}) };
+                                        et[idx] = v;
+                                        updateRoom(selectedRoom.id, { edgeThickness: et });
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <label className="flex items-center gap-1 text-[10px] text-foreground">
+                                  <input type="checkbox" checked={!isNoWall} onChange={() => {
+                                    const edges = new Set(selectedRoom.noWallEdges || []);
+                                    if (edges.has(idx)) edges.delete(idx);
+                                    else edges.add(idx);
+                                    updateRoom(selectedRoom.id, { noWallEdges: Array.from(edges) });
+                                  }} className="rounded border-border w-3 h-3" />
+                                  Wand aktiv
+                                </label>
+                                <button
+                                  onClick={() => {
+                                    const et = { ...(selectedRoom.edgeThickness || {}) };
+                                    delete et[idx];
+                                    updateRoom(selectedRoom.id, { edgeThickness: et });
+                                  }}
+                                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  Standard-Dicke
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
