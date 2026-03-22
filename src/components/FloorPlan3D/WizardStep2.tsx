@@ -963,12 +963,41 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               })}
             </div>
             {selectedRoom && (
-              <div className="p-4 border-t border-border bg-secondary/50 space-y-3 max-h-[40%] overflow-y-auto">
+              <div className="p-4 border-t border-border bg-secondary/50 space-y-3 max-h-[50%] overflow-y-auto">
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Name</label>
                   <input value={selectedRoom.name} onChange={(e) => updateRoom(selectedRoom.id, { name: e.target.value })}
                     className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
+
+                {/* Wall edge dimensions */}
+                <div>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wandlängen</label>
+                  <div className="space-y-1.5">
+                    {selectedRoom.points.map((pt, idx) => {
+                      const next = selectedRoom.points[(idx + 1) % selectedRoom.points.length];
+                      const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
+                      return (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-14 flex-shrink-0">Wand {idx + 1}</span>
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0.25"
+                            value={parseFloat(len.toFixed(2))}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
+                            }}
+                            className="flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <span className="text-[10px] text-muted-foreground">m</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Bodenbelag</label>
                   <div className="flex gap-2">
