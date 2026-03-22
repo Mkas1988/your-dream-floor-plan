@@ -1031,6 +1031,20 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
           </div>
         )}
       </div>
+
+      {/* AI Chat Panel */}
+      {phase === "rooms" && (
+        <ChatPanel
+          rooms={rooms}
+          outline={outline}
+          onCreateRoom={chatCreateRoom}
+          onResizeRoom={chatResizeRoom}
+          onMoveRoom={chatMoveRoom}
+          onRenameRoom={chatRenameRoom}
+          onDeleteRoom={chatDeleteRoom}
+          onSetFloorType={chatSetFloorType}
+        />
+      )}
     </div>
   );
 };
