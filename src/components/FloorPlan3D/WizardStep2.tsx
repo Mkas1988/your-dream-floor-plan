@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BuildingConfig, RoomConfig } from "./types";
 import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home } from "lucide-react";
+import { ChatPanel } from "./ChatPanel";
 
 interface Props {
   building: BuildingConfig;
@@ -445,6 +446,97 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     if (selectedRoomId === id) setSelectedRoomId(null);
   };
 
+  // --- Wall edge length editing ---
+  const updateEdgeLength = (roomId: string, edgeIdx: number, newLength: number) => {
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room || newLength <= 0) return;
+    const pts = room.points;
+    const i = edgeIdx;
+    const j = (i + 1) % pts.length;
+    const a = pts[i], b = pts[j];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const currentLen = Math.hypot(dx, dy);
+    if (currentLen === 0) return;
+    const scale = newLength / currentLen;
+    const newB: [number, number] = [snap(a[0] + dx * scale), snap(a[1] + dy * scale)];
+    const newPts = [...pts];
+    newPts[j] = newB;
+    onChange(rooms.map((r) => (r.id === roomId ? { ...r, points: newPts } : r)));
+  };
+
+  // --- Chatbot action handlers ---
+  const chatCreateRoom = (name: string, width: number, depth: number, x?: number, y?: number) => {
+    let cx = x ?? 0, cy = y ?? 0;
+    if (x === undefined && y === undefined && outline.length >= 3) {
+      const c = centroid(outline);
+      cx = c[0]; cy = c[1];
+      cx = snap(cx + rooms.length * 0.5);
+      cy = snap(cy + rooms.length * 0.5);
+    }
+    const hw = width / 2, hd = depth / 2;
+    const points: [number, number][] = [
+      [snap(cx - hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy - hd)],
+      [snap(cx + hw), snap(cy + hd)],
+      [snap(cx - hw), snap(cy + hd)],
+    ];
+    const newRoom: RoomConfig = {
+      id: `room-${++roomIdCounter}`,
+      name,
+      points,
+      floorType: "parkett",
+    };
+    onChange([...rooms, newRoom]);
+    setSelectedRoomId(newRoom.id);
+    setMode("select");
+  };
+
+  const chatResizeRoom = (roomName: string, width?: number, depth?: number) => {
+    const room = rooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+    if (!room) return;
+    const c = centroid(room.points);
+    const xs = room.points.map((p) => p[0]);
+    const ys = room.points.map((p) => p[1]);
+    const curW = Math.max(...xs) - Math.min(...xs);
+    const curD = Math.max(...ys) - Math.min(...ys);
+    const newW = width ?? curW;
+    const newD = depth ?? curD;
+    const hw = newW / 2, hd = newD / 2;
+    const points: [number, number][] = [
+      [snap(c[0] - hw), snap(c[1] - hd)],
+      [snap(c[0] + hw), snap(c[1] - hd)],
+      [snap(c[0] + hw), snap(c[1] + hd)],
+      [snap(c[0] - hw), snap(c[1] + hd)],
+    ];
+    onChange(rooms.map((r) => (r.id === room.id ? { ...r, points } : r)));
+  };
+
+  const chatMoveRoom = (roomName: string, x: number, y: number) => {
+    const room = rooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+    if (!room) return;
+    const c = centroid(room.points);
+    const dx = x - c[0], dy = y - c[1];
+    const points = room.points.map((p) => [snap(p[0] + dx), snap(p[1] + dy)] as [number, number]);
+    onChange(rooms.map((r) => (r.id === room.id ? { ...r, points } : r)));
+  };
+
+  const chatRenameRoom = (roomName: string, newName: string) => {
+    const room = rooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+    if (room) updateRoom(room.id, { name: newName });
+  };
+
+  const chatDeleteRoom = (roomName: string) => {
+    const room = rooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+    if (room) deleteRoom(room.id);
+  };
+
+  const chatSetFloorType = (roomName: string, floorType: string) => {
+    const room = rooms.find((r) => r.name.toLowerCase() === roomName.toLowerCase());
+    if (room && ["parkett", "fliesen", "laminat"].includes(floorType)) {
+      updateRoom(room.id, { floorType: floorType as RoomConfig["floorType"] });
+    }
+  };
+
   const addRoomByDimensions = () => {
     const w = parseFloat(newRoomWidth);
     const d = parseFloat(newRoomDepth);
@@ -871,12 +963,41 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
               })}
             </div>
             {selectedRoom && (
-              <div className="p-4 border-t border-border bg-secondary/50 space-y-3 max-h-[40%] overflow-y-auto">
+              <div className="p-4 border-t border-border bg-secondary/50 space-y-3 max-h-[50%] overflow-y-auto">
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Name</label>
                   <input value={selectedRoom.name} onChange={(e) => updateRoom(selectedRoom.id, { name: e.target.value })}
                     className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
+
+                {/* Wall edge dimensions */}
+                <div>
+                  <label className="text-xs font-medium text-foreground mb-1.5 block">Wandlängen</label>
+                  <div className="space-y-1.5">
+                    {selectedRoom.points.map((pt, idx) => {
+                      const next = selectedRoom.points[(idx + 1) % selectedRoom.points.length];
+                      const len = Math.hypot(next[0] - pt[0], next[1] - pt[1]);
+                      return (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-14 flex-shrink-0">Wand {idx + 1}</span>
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0.25"
+                            value={parseFloat(len.toFixed(2))}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              if (!isNaN(v) && v > 0) updateEdgeLength(selectedRoom.id, idx, v);
+                            }}
+                            className="flex-1 px-2 py-1 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <span className="text-[10px] text-muted-foreground">m</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Bodenbelag</label>
                   <div className="flex gap-2">
@@ -910,6 +1031,20 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
           </div>
         )}
       </div>
+
+      {/* AI Chat Panel */}
+      {phase === "rooms" && (
+        <ChatPanel
+          rooms={rooms}
+          outline={outline}
+          onCreateRoom={chatCreateRoom}
+          onResizeRoom={chatResizeRoom}
+          onMoveRoom={chatMoveRoom}
+          onRenameRoom={chatRenameRoom}
+          onDeleteRoom={chatDeleteRoom}
+          onSetFloorType={chatSetFloorType}
+        />
+      )}
     </div>
   );
 };
