@@ -395,10 +395,11 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
     }
 
     if (drag.type === "vertex") {
+      let snapped = snapToVertices(world, drag.roomId);
       onChange(rooms.map((r) => {
         if (r.id !== drag.roomId) return r;
         const pts = [...r.points] as [number, number][];
-        pts[drag.idx] = world;
+        pts[drag.idx] = snapped;
         return { ...r, points: pts };
       }));
       return;
