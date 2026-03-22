@@ -642,6 +642,27 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
             >
               <Settings className="w-4 h-4" />
             </button>
+            {onSave && (
+              <>
+                <div className="w-px bg-border mx-1" />
+                {onPlanNameChange && (
+                  <input
+                    value={planName || ""}
+                    onChange={(e) => onPlanNameChange(e.target.value)}
+                    className="px-2 py-1.5 rounded-md border border-border bg-background text-foreground text-sm w-36 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="Name..."
+                  />
+                )}
+                <button
+                  onClick={onSave}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Speichern
+                </button>
+              </>
+            )}
           </div>
         </div>
 
