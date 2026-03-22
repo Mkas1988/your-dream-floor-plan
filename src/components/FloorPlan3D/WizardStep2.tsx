@@ -248,6 +248,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
         if (pointInPolygon(world[0], world[1], room.points)) {
           e.stopPropagation();
           setSelectedRoomId(room.id);
+          setSelectedEdgeIdx(null);
           setDrag({ type: "room", roomId: room.id, startMouse: world, origPts: room.points.map((p) => [...p] as [number, number]) });
           return;
         }
