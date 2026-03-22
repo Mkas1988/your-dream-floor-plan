@@ -88,6 +88,7 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedEdgeIdx, setSelectedEdgeIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("draw");
+  const [mergeState, setMergeState] = useState<MergeState>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [mouseWorld, setMouseWorld] = useState<[number, number] | null>(null);
   const [drag, setDrag] = useState<DragState>(null);
