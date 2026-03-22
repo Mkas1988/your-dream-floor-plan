@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { BuildingConfig, RoomConfig } from "./types";
 import { Trash2, ArrowLeft, Eye, Pencil, MousePointer, X, Settings, Plus, Minus, Home } from "lucide-react";
+import { ChatPanel } from "./ChatPanel";
 
 interface Props {
   building: BuildingConfig;
