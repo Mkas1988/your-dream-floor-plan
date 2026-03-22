@@ -759,9 +759,34 @@ export const WizardStep2 = ({ building, onBuildingChange, rooms, onChange, onBac
                 </div>
               </div>
               {outline.length < 3 ? (
-                <p className="text-xs text-muted-foreground">
-                  Klicke auf das Raster, um die Eckpunkte deines Gebäudes zu setzen. Schließe die Form mit Doppelklick oder klicke den ersten Punkt an.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Zeichne die Außenform auf dem Raster oder gib die Maße ein:
+                  </p>
+                  <div className="p-3 rounded-lg border border-border bg-muted/50 space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-xs font-medium text-foreground mb-1 block">Breite (m)</label>
+                        <input type="number" step="0.25" min="1" value={outlineWidth} onChange={(e) => setOutlineWidth(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-medium text-foreground mb-1 block">Tiefe (m)</label>
+                        <input type="number" step="0.25" min="1" value={outlineDepth} onChange={(e) => setOutlineDepth(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      const w = parseFloat(outlineWidth), d = parseFloat(outlineDepth);
+                      if (isNaN(w) || isNaN(d) || w <= 0 || d <= 0) return;
+                      const hw = w / 2, hd = d / 2;
+                      setOutline([[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]);
+                    }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 transition-colors">
+                      <Home className="w-3.5 h-3.5" />Rechteck erstellen
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
