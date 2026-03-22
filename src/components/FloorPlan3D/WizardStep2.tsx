@@ -10,6 +10,10 @@ interface Props {
   onChange: (rooms: RoomConfig[]) => void;
   onBack: () => void;
   onFinish: () => void;
+  onSave?: () => void;
+  saving?: boolean;
+  planName?: string;
+  onPlanNameChange?: (name: string) => void;
 }
 
 let roomIdCounter = 0;
