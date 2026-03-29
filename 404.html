@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // SPA redirect for GitHub Pages
+      var path = window.location.pathname;
+      var base = '/your-dream-floor-plan/';
+      if (path.startsWith(base)) {
+        var route = path.slice(base.length);
+        window.location.replace(base + '?' + route + window.location.hash);
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
