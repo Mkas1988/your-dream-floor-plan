@@ -6,11 +6,10 @@ import { FurnitureItem, BuildingConfig, RoomConfig } from "./types";
 import { furnitureCatalog } from "./constants";
 import { generateWalls, generateFloorTiles, generateRoomLabels, computeBuildingBounds } from "./generatePlan";
 import { supabase } from "@/integrations/supabase/client";
+import { useHistory } from "@/hooks/useHistory";
 import * as THREE from "three";
 import { ArrowLeft, Save, FolderOpen, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
-let idCounter = 0;
 
 type WizardStep = "home" | "rooms" | "3d";
 
@@ -31,13 +30,36 @@ export const FloorPlanEditor = () => {
     wallThickness: 0.24,
     wallHeight: 2.6,
   });
-  const [rooms, setRooms] = useState<RoomConfig[]>([]);
-  const [furniture, setFurniture] = useState<FurnitureItem[]>([]);
+  const { state: rooms, set: setRooms, undo: undoRooms, redo: redoRooms, canUndo: canUndoRooms, canRedo: canRedoRooms } = useHistory<RoomConfig[]>([]);
+  const { state: furniture, set: setFurniture, undo: undoFurniture, redo: redoFurniture, canUndo: canUndoFurniture, canRedo: canRedoFurniture } = useHistory<FurnitureItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCatalogType, setSelectedCatalogType] = useState<string | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const canUndo = canUndoRooms || canUndoFurniture;
+  const canRedo = canRedoRooms || canRedoFurniture;
+
+  const undo = useCallback(() => { undoRooms(); undoFurniture(); }, [undoRooms, undoFurniture]);
+  const redo = useCallback(() => { redoRooms(); redoFurniture(); }, [redoRooms, redoFurniture]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undo, redo]);
 
   useEffect(() => { loadPlans(); }, []);
 
@@ -108,23 +130,23 @@ export const FloorPlanEditor = () => {
     const catalogItem = furnitureCatalog.find((c) => c.type === selectedCatalogType);
     if (!catalogItem) return;
     const newItem: FurnitureItem = {
-      id: `furniture-${++idCounter}`, type: catalogItem.type, label: catalogItem.label,
+      id: crypto.randomUUID(), type: catalogItem.type, label: catalogItem.label,
       position: [point.x, catalogItem.size[1] / 2, point.z], rotation: 0, size: catalogItem.size, color: catalogItem.color,
     };
     setFurniture((prev) => [...prev, newItem]); setSelectedId(newItem.id);
-  }, [selectedCatalogType]);
+  }, [selectedCatalogType, setFurniture]);
 
   const handleMoveFurniture = useCallback((id: string, position: [number, number, number]) => {
     setFurniture((prev) => prev.map((f) => (f.id === id ? { ...f, position } : f)));
-  }, []);
+  }, [setFurniture]);
 
   const handleDelete = useCallback((id: string) => {
     setFurniture((prev) => prev.filter((f) => f.id !== id)); setSelectedId(null);
-  }, []);
+  }, [setFurniture]);
 
   const handleRotate = useCallback((id: string) => {
     setFurniture((prev) => prev.map((f) => f.id === id ? { ...f, rotation: f.rotation + Math.PI / 4 } : f));
-  }, []);
+  }, [setFurniture]);
 
   if (step === "home") {
     return (
@@ -182,6 +204,10 @@ export const FloorPlanEditor = () => {
         saving={saving}
         planName={planName}
         onPlanNameChange={setPlanName}
+        canUndo={canUndoRooms}
+        canRedo={canRedoRooms}
+        onUndo={undoRooms}
+        onRedo={redoRooms}
       />
     );
   }

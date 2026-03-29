@@ -1,23 +1,5 @@
 import { BuildingConfig, RoomConfig, WallSegment, RoomLabel, FloorTile, FLOOR_COLORS } from "./types";
-
-function centroid(points: [number, number][]): [number, number] {
-  const n = points.length;
-  if (n === 0) return [0, 0];
-  return [
-    points.reduce((s, p) => s + p[0], 0) / n,
-    points.reduce((s, p) => s + p[1], 0) / n,
-  ];
-}
-
-function polygonArea(points: [number, number][]): number {
-  let area = 0;
-  const n = points.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += points[i][0] * points[j][1] - points[j][0] * points[i][1];
-  }
-  return Math.abs(area) / 2;
-}
+import { centroid, polygonArea } from "./geometry";
 
 function edgeKey(a: [number, number], b: [number, number]): string {
   const ax = a[0].toFixed(3), az = a[1].toFixed(3);

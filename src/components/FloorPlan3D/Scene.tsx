@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Html } from "@react-three/drei";
 import { Wall } from "./Wall";
 import { Floor } from "./Floor";
 import { FurniturePiece } from "./FurniturePiece";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { FurnitureItem, WallSegment, RoomLabel, FloorTile } from "./types";
+import { Loader2 } from "lucide-react";
 import * as THREE from "three";
 
 interface SceneProps {
@@ -53,44 +56,54 @@ export const Scene = ({
   buildingDepth,
 }: SceneProps) => {
   return (
-    <Canvas shadows style={{ background: "hsl(220, 20%, 95%)" }}>
-      <PerspectiveCamera makeDefault position={[0, 14, 12]} fov={50} />
-      <OrbitControls
-        maxPolarAngle={Math.PI / 2.1}
-        minDistance={3}
-        maxDistance={25}
-        target={[0, 0, 0]}
-      />
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-full w-full bg-muted/50">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        }
+      >
+        <Canvas shadows style={{ background: "hsl(220, 20%, 95%)" }}>
+          <PerspectiveCamera makeDefault position={[0, 14, 12]} fov={50} />
+          <OrbitControls
+            maxPolarAngle={Math.PI / 2.1}
+            minDistance={3}
+            maxDistance={25}
+            target={[0, 0, 0]}
+          />
 
-      <ambientLight intensity={0.5} />
-      <directionalLight
-        position={[8, 12, 5]}
-        intensity={1}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <directionalLight position={[-5, 8, -3]} intensity={0.3} />
+          <ambientLight intensity={0.5} />
+          <directionalLight
+            position={[8, 12, 5]}
+            intensity={1}
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+          />
+          <directionalLight position={[-5, 8, -3]} intensity={0.3} />
 
-      <Floor onFloorClick={onPlaceFurniture} floorTiles={floorTiles} buildingWidth={buildingWidth} buildingDepth={buildingDepth} />
+          <Floor onFloorClick={onPlaceFurniture} floorTiles={floorTiles} buildingWidth={buildingWidth} buildingDepth={buildingDepth} />
 
-      {walls.map((wall, i) => (
-        <Wall key={i} wall={wall} />
-      ))}
+          {walls.map((wall, i) => (
+            <Wall key={i} wall={wall} />
+          ))}
 
-      <RoomLabels labels={roomLabels} />
+          <RoomLabels labels={roomLabels} />
 
-      {furniture.map((item) => (
-        <FurniturePiece
-          key={item.id}
-          item={item}
-          isSelected={selectedId === item.id}
-          onSelect={onSelectFurniture}
-          onMove={onMoveFurniture}
-        />
-      ))}
+          {furniture.map((item) => (
+            <FurniturePiece
+              key={item.id}
+              item={item}
+              isSelected={selectedId === item.id}
+              onSelect={onSelectFurniture}
+              onMove={onMoveFurniture}
+            />
+          ))}
 
-      <gridHelper args={[20, 20, "hsl(220, 10%, 80%)", "hsl(220, 10%, 90%)"]} position={[0, 0.01, 0]} />
-    </Canvas>
+          <gridHelper args={[20, 20, "hsl(220, 10%, 80%)", "hsl(220, 10%, 90%)"]} position={[0, 0.01, 0]} />
+        </Canvas>
+      </Suspense>
+    </ErrorBoundary>
   );
 };

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { MessageCircle, Send, Loader2, X, Bot, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RoomConfig } from "./types";
+import { centroid } from "./geometry";
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -41,23 +42,6 @@ interface ChatPanelProps {
   onRenameRoom: (roomName: string, newName: string) => void;
   onDeleteRoom: (roomName: string) => void;
   onSetFloorType: (roomName: string, floorType: string) => void;
-}
-
-function polygonArea(pts: [number, number][]): number {
-  let area = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const j = (i + 1) % pts.length;
-    area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1];
-  }
-  return Math.abs(area) / 2;
-}
-
-function centroid(pts: [number, number][]): [number, number] {
-  const n = pts.length;
-  return [
-    pts.reduce((s, p) => s + p[0], 0) / n,
-    pts.reduce((s, p) => s + p[1], 0) / n,
-  ];
 }
 
 function roomToSummary(room: RoomConfig): RoomSummary {
